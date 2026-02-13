@@ -9,6 +9,7 @@ Designed for a distributed home-lab architecture: lightweight orchestration (N10
 ## 🏗️ Architecture
 
 The system is built on a **Split-Architecture** to optimize for hardware constraints and 24/7 availability.
+**Accessible securely from anywhere via Tailscale** (no public IP exposure).
 
 ```mermaid
 graph TD
@@ -17,13 +18,14 @@ graph TD
     end
 
     subgraph "HomeLab Server (N100)"
-        API -->|Store Job| DB[(SQLite)]
-        API -->|Forward Audio| Worker[GPU Worker]
+        API -->|1. Store Job| DB[(SQLite)]
+        API -->|2. Forward Audio| Worker[GPU Worker]
+        Worker -->|4. Return Transcript| API
+        API -->|5. Save Transcript| DB
     end
 
     subgraph "Workstation (RTX 4070)"
-        Worker -->|Async Lock| Whisper[Faster-Whisper]
-        Whisper -->|Return Transcript| API
+        Worker -->|3. Async Lock| Whisper[Faster-Whisper]
     end
 
     classDef hardware fill:#f9f,stroke:#333,stroke-width:2px;
@@ -33,11 +35,10 @@ graph TD
 1.  **Orchestrator Backend (FastAPI)**:
     *   Runs on low-power hardware (N100).
     *   Manages API requests, Database state, and Business Logic.
-    *   Implements **Clean Architecture** (Repository/Service Pattern).
 2.  **ML Worker (GPU/CUDA)**:
-    *   Runs on high-end hardware (RTX 4070).
+    *   Runs on consumer GPU (RTX 4070).
     *   Exposes a stateless API for heavy lifting (Transcription/Diarization).
-    *   Powered by `faster-whisper` (CTranslate2) for 4x speedup vs vanilla Whisper.
+    *   Powered by `faster-whisper` for 4x speedup vs vanilla Whisper.
     *   Protected by **Async Locks** and ThreadPools to prevent OOM.
 3.  **Chrome Extension (Manifest V3)**:
     *   Captures high-quality audio streams (System Tab + Local Mic).
@@ -46,10 +47,10 @@ graph TD
 ## 🛠️ Tech Stack
 
 *   **Language**: Python 3.14
-*   **Framework**: FastAPI (Async Native)
-*   **Data Layer**: SQLModel (SQLAlchemy + Pydantic)
-*   **Database**: SQLite (Async/aiosqlite)
-*   **ML Engine**: Faster-Whisper, CTranslate2
+*   **Framework**: FastAPI
+*   **Data Layer**: SQLModel
+*   **Database**: SQLite
+*   **ML Engine**: Faster-Whisper
 *   **Concurrency**: Asyncio, ThreadPoolExecutor
 *   **DevOps**: Docker ready, modular service design
 
