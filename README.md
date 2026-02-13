@@ -10,6 +10,26 @@ Designed for a distributed home-lab architecture: lightweight orchestration (N10
 
 The system is built on a **Split-Architecture** to optimize for hardware constraints and 24/7 availability.
 
+```mermaid
+graph TD
+    subgraph Client
+        Ext[Chrome Extension] -->|Upload Audio + Metadata| API[Backend API]
+    end
+
+    subgraph "HomeLab Server (N100)"
+        API -->|Store Job| DB[(SQLite)]
+        API -->|Forward Audio| Worker[GPU Worker]
+    end
+
+    subgraph "Workstation (RTX 4070)"
+        Worker -->|Async Lock| Whisper[Faster-Whisper]
+        Whisper -->|Return Transcript| API
+    end
+
+    classDef hardware fill:#f9f,stroke:#333,stroke-width:2px;
+    class Worker,Whisper hardware;
+```
+
 1.  **Orchestrator Backend (FastAPI)**:
     *   Runs on low-power hardware (N100).
     *   Manages API requests, Database state, and Business Logic.
