@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 300px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      padding: 16px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #333;
+    }
+
+    .header img {
+      width: 32px;
+      height: 32px;
+    }
+
+    .header h1 {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .status {
+      background: #252540;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .status-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .status-label {
+      color: #888;
+      font-size: 12px;
+    }
+
+    .status-value {
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .status-value.recording {
+      color: #ff4444;
+    }
+
+    .status-value.idle {
+      color: #888;
+    }
+
+    .status-value.connected {
+      color: #44ff44;
+    }
+
+    .recording-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .recording-dot {
+      width: 10px;
+      height: 10px;
+      background: #ff4444;
+      border-radius: 50%;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 8px;
+    }
+
+    .btn-primary {
+      background: #4a4aff;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #5a5aff;
+    }
+
+    .btn-danger {
+      background: #ff4444;
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #ff5555;
+    }
+
+    .btn-secondary {
+      background: #333;
+      color: #eee;
+    }
+
+    .btn-secondary:hover {
+      background: #444;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .shortcuts {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #333;
+    }
+
+    .shortcut {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 4px;
+    }
+
+    .shortcut kbd {
+      background: #333;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+
+    .meeting-info {
+      background: #2a2a4a;
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 12px;
+      font-size: 13px;
+    }
+
+    .meeting-title {
+      font-weight: 600;
+      margin-bottom: 4px;
+      word-break: break-word;
+    }
+
+    .meeting-duration {
+      color: #888;
+      font-size: 12px;
+    }
+
+    .meeting-participants {
+      color: #aaa;
+      font-size: 11px;
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px solid #333;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <img src="../icons/icon48.png" alt="MeetScribe">
+    <h1>MeetScribe</h1>
+  </div>
+
+  <div class="status">
+    <div class="status-row">
+      <span class="status-label">Status</span>
+      <span id="status-text" class="status-value idle">Inactif</span>
+    </div>
+    <div class="status-row">
+      <span class="status-label">Backend</span>
+      <span id="backend-status" class="status-value">...</span>
+    </div>
+  </div>
+
+  <div id="meeting-info" class="meeting-info hidden">
+    <div id="meeting-title" class="meeting-title"></div>
+    <div id="meeting-duration" class="meeting-duration"></div>
+    <div id="meeting-participants" class="meeting-participants"></div>
+  </div>
+
+  <button id="toggle-btn" class="btn btn-primary">
+    Démarrer l'enregistrement
+  </button>
+
+  <button id="screenshot-btn" class="btn btn-secondary" disabled>
+    Capturer un screenshot
+  </button>
+
+  <div class="shortcuts">
+    <div class="shortcut">
+      <span>Screenshot</span>
+      <kbd>Ctrl+Shift+S</kbd>
+    </div>
+    <div class="shortcut">
+      <span>Toggle recording</span>
+      <kbd>Ctrl+Shift+R</kbd>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
