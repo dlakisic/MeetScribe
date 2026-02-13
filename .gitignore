@@ -1,0 +1,36 @@
+# General
+__pycache__/
+*.py[cod]
+*$py.class
+**/.DS_Store
+.vscode/
+.idea/
+
+# Environment
+.env
+.venv/
+venv/
+env/
+
+# Data & Config (Local)
+backend/data/
+backend/uploads/
+gpu-worker/uploads/
+devices.json
+snapshot.json
+tinytuya.json
+tuya-raw.json
+
+# Temporary Files
+docx_temp/
+prd_full.txt
+
+# Testing & Artifacts
+.mypy_cache/
+.pytest_cache/
+test_files/
+.coverage
+htmlcov/
+
+# Dependencies
+# uv.lock should be committed for reproducible builds

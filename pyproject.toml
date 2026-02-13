@@ -1,0 +1,29 @@
+[project]
+name = "meetscribe"
+version = "0.1.0"
+description = "Self-hosted meeting transcription with speaker diarization"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "aiosqlite>=0.22.1",
+    "fastapi>=0.128.8",
+    "faster-whisper>=1.2.1",
+    "httpx>=0.28.1",
+    "numpy>=2.4.2",
+    "paramiko>=4.0.0",
+    "python-multipart>=0.0.22",
+    "sqlalchemy>=2.0.0",
+    "sqlmodel>=0.0.16",
+    "tinytuya>=1.17.4",
+    "uvicorn>=0.40.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.9.0",
+]
+
+[project.scripts]
+meetscribe-backend = "backend.app.main:main"
+meetscribe-worker = "gpu_worker.transcribe:main"
