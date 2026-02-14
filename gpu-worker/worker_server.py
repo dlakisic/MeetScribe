@@ -3,17 +3,15 @@ GPU Worker HTTP Server
 Receives audio files via HTTP and returns transcripts
 """
 
+import asyncio
 import json
 import tempfile
-import asyncio
 from pathlib import Path
-from dataclasses import dataclass
 
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException
-from fastapi.responses import JSONResponse
 import uvicorn
-
-from transcribe import process_meeting, Transcriber
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import JSONResponse
+from transcribe import Transcriber, process_meeting
 
 app = FastAPI(title="MeetScribe GPU Worker", version="0.1.0")
 
@@ -39,7 +37,7 @@ async def startup():
     """Preload model on startup and initialize lock."""
     global _lock
     _lock = asyncio.Lock()
-    
+
     # Run in thread to not block
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(None, get_transcriber)
@@ -82,7 +80,7 @@ async def transcribe(
             raise HTTPException(status_code=400, detail="Invalid metadata JSON")
 
         # Create temp directory for this job
-        job_dir = Path(tempfile.mkdtemp(dir=WORK_DIR))
+        job_dir = Path(tempfile.mkdtemp())
 
         try:
             # Save uploaded files
@@ -110,7 +108,7 @@ async def transcribe(
                     output_path=output_path,
                     model_size=_model_size,
                     device=_device,
-                )
+                ),
             )
 
             return JSONResponse(content=result)
@@ -122,6 +120,7 @@ async def transcribe(
         finally:
             # Cleanup temp files
             import shutil
+
             shutil.rmtree(job_dir, ignore_errors=True)
 
 

@@ -1,7 +1,9 @@
 import json
 from pathlib import Path
+
 from .domain import TranscriptSegment
 from .transcriber import WhisperTranscriber
+
 
 def merge_transcripts(
     mic_segments: list[TranscriptSegment],
@@ -12,22 +14,27 @@ def merge_transcripts(
     """Merge two transcript timelines into one, sorted chronologically."""
     all_segments = []
     for seg in mic_segments:
-        all_segments.append(TranscriptSegment(
-            speaker=seg.speaker,
-            text=seg.text,
-            start=seg.start + mic_offset,
-            end=seg.end + mic_offset,
-        ))
+        all_segments.append(
+            TranscriptSegment(
+                speaker=seg.speaker,
+                text=seg.text,
+                start=seg.start + mic_offset,
+                end=seg.end + mic_offset,
+            )
+        )
     for seg in tab_segments:
-        all_segments.append(TranscriptSegment(
-            speaker=seg.speaker,
-            text=seg.text,
-            start=seg.start + tab_offset,
-            end=seg.end + tab_offset,
-        ))
+        all_segments.append(
+            TranscriptSegment(
+                speaker=seg.speaker,
+                text=seg.text,
+                start=seg.start + tab_offset,
+                end=seg.end + tab_offset,
+            )
+        )
 
     all_segments.sort(key=lambda s: s.start)
     return all_segments
+
 
 def format_timestamp(seconds: float) -> str:
     h = int(seconds // 3600)
@@ -35,12 +42,14 @@ def format_timestamp(seconds: float) -> str:
     s = int(seconds % 60)
     return f"{h:02d}:{m:02d}:{s:02d}"
 
+
 def format_transcript(segments: list[TranscriptSegment]) -> str:
     lines = []
     for seg in segments:
         timestamp = format_timestamp(seg.start)
         lines.append(f"[{timestamp}] {seg.speaker}: {seg.text}")
     return "\n".join(lines)
+
 
 class MeetingPipeline:
     def __init__(self, model_size: str = "large-v3", device: str = "cuda"):
@@ -60,7 +69,7 @@ class MeetingPipeline:
 
         print(f"Transcribing microphone track as '{local_speaker}'...")
         mic_segments = self.transcriber.transcribe_file(mic_path, local_speaker)
-        
+
         print(f"Transcribing tab audio track as '{remote_speaker}'...")
         tab_segments = self.transcriber.transcribe_file(tab_path, remote_speaker)
 
@@ -68,7 +77,8 @@ class MeetingPipeline:
         tab_offset = metadata.get("tab_start_offset", 0.0)
 
         merged = merge_transcripts(
-            mic_segments, tab_segments,
+            mic_segments,
+            tab_segments,
             mic_offset=mic_offset,
             tab_offset=tab_offset,
         )

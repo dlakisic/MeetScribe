@@ -1,23 +1,20 @@
 """MeetScribe Backend API."""
 
-import asyncio
 import json
 import shutil
 import uuid
-from datetime import datetime
-from pathlib import Path
 from contextlib import asynccontextmanager
+from datetime import datetime
 
-from fastapi import FastAPI, File, Form, UploadFile, HTTPException, BackgroundTasks
-from fastapi.responses import JSONResponse
+from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
 
-from .config import load_config, Config
+from .config import Config, load_config
 from .database import Database
 from .gpu_client import TranscriptionService
 from .repositories.meeting_repository import MeetingRepository
+from .services.extraction_service import ExtractionService
 from .services.job_store import JobStore
 from .services.meeting_service import MeetingService
-
 
 # Global instances
 config: Config
@@ -34,15 +31,16 @@ async def lifespan(app: FastAPI):
     config = load_config()
     db = Database(config.db_path)
     await db.connect()
-    
+
     # Initialize infrastructure and services
     repo = MeetingRepository(db)
     transcriber = TranscriptionService(config)
     job_store = JobStore()
-    
-    meeting_service = MeetingService(repo, transcriber, job_store)
+    extraction_service = ExtractionService()
 
-    print(f"MeetScribe Backend started")
+    meeting_service = MeetingService(repo, transcriber, job_store, extraction_service)
+
+    print("MeetScribe Backend started")
     print(f"  Data dir: {config.data_dir}")
     print(f"  GPU worker: {config.gpu.ssh_user}@{config.gpu.host}")
     print(f"  Fallback enabled: {config.fallback.enabled}")

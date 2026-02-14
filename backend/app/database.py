@@ -1,11 +1,11 @@
 """SQLite database for storing meetings and transcripts."""
 
 from pathlib import Path
+
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 
-from .models import Meeting, Transcript, Segment  # Import models to register them
 
 class Database:
     def __init__(self, db_path: Path):
@@ -13,9 +13,7 @@ class Database:
         # Use aiosqlite driver
         self.database_url = f"sqlite+aiosqlite:///{db_path}"
         self.engine = create_async_engine(self.database_url, echo=False)
-        self.async_session = sessionmaker(
-            self.engine, class_=AsyncSession, expire_on_commit=False
-        )
+        self.async_session = sessionmaker(self.engine, class_=AsyncSession, expire_on_commit=False)
 
     async def connect(self):
         """Create tables if they don't exist."""
@@ -29,4 +27,3 @@ class Database:
     def session(self) -> AsyncSession:
         """Get a new async session."""
         return self.async_session()
-

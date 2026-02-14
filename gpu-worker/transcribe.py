@@ -5,14 +5,15 @@ It delegates logic to `core/` modules.
 """
 
 from pathlib import Path
-from core.domain import TranscriptSegment
-from core.transcriber import WhisperTranscriber
+
 from core.pipeline import MeetingPipeline
+from core.transcriber import WhisperTranscriber
 
 
 # Backward compatibility class
 class Transcriber(WhisperTranscriber):
     """Facade for WhisperTranscriber to maintain compatibility."""
+
     pass
 
 
@@ -49,7 +50,7 @@ def main():
 
     args = parser.parse_args()
 
-    with open(args.metadata, "r", encoding="utf-8") as f:
+    with open(args.metadata, encoding="utf-8") as f:
         metadata = json.load(f)
 
     result = process_meeting(

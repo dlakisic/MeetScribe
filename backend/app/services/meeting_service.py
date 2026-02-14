@@ -1,8 +1,11 @@
-from pathlib import Path
 from datetime import datetime
-from ..repositories.meeting_repository import MeetingRepository
+from pathlib import Path
+
 from ..gpu_client import TranscriptionService
+from ..repositories.meeting_repository import MeetingRepository
+from .extraction_service import ExtractionService
 from .job_store import JobStore
+
 
 class MeetingService:
     """Service handling meeting business logic."""
@@ -12,10 +15,12 @@ class MeetingService:
         repo: MeetingRepository,
         transcriber: TranscriptionService,
         job_store: JobStore,
+        extraction_service: ExtractionService,
     ):
         self.repo = repo
         self.transcriber = transcriber
         self.job_store = job_store
+        self.extraction_service = extraction_service
 
     async def create_meeting(
         self,
@@ -53,14 +58,27 @@ class MeetingService:
                     formatted=result.formatted or "",
                     stats=result.stats or {},
                 )
+
+                # Extract structured data (Actions, Summary)
+                try:
+                    print(f"Starting extraction for meeting {meeting_id}...")
+                    extracted = await self.extraction_service.extract_from_transcript(
+                        result.formatted or ""
+                    )
+                    await self.repo.save_extracted_data(meeting_id, extracted.model_dump())
+                    print(f"Extraction completed for meeting {meeting_id}")
+                except Exception as e:
+                    print(f"Extraction failed for meeting {meeting_id}: {e}")
+                    # We don't fail the job, just log the error
+
                 self.job_store.update_status(
-                    job_id, 
+                    job_id,
                     "completed",
                     result={
                         "meeting_id": meeting_id,
                         "segments_count": len(result.segments or []),
                         "used_fallback": result.used_fallback,
-                    }
+                    },
                 )
             else:
                 await self.repo.update_status(meeting_id, "failed")
@@ -74,7 +92,7 @@ class MeetingService:
         meeting = await self.repo.get(meeting_id)
         if not meeting:
             return None
-        
+
         transcript = await self.repo.get_transcript(meeting_id)
         return {
             "meeting": meeting,

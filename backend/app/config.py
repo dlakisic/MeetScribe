@@ -1,13 +1,14 @@
 """Configuration for the MeetScribe backend."""
 
-from pathlib import Path
-from dataclasses import dataclass, field
 import os
+from dataclasses import dataclass, field
+from pathlib import Path
 
 
 @dataclass
 class GPUWorkerConfig:
     """Configuration for the remote GPU worker."""
+
     host: str = "localhost"  # GPU machine hostname/IP
     ssh_user: str = "dino"
     ssh_port: int = 22
@@ -21,6 +22,7 @@ class GPUWorkerConfig:
 @dataclass
 class FallbackConfig:
     """Configuration for CPU fallback."""
+
     enabled: bool = True
     model_size: str = "medium"  # Smaller model for CPU
     timeout: int = 3600  # Allow more time for CPU
@@ -29,6 +31,7 @@ class FallbackConfig:
 @dataclass
 class SmartPlugConfig:
     """Configuration for the GPU PC smart plug."""
+
     enabled: bool = False
     device_id: str = ""
     ip_address: str = ""
@@ -40,10 +43,15 @@ class SmartPlugConfig:
 @dataclass
 class Config:
     """Main application configuration."""
+
     # Storage - defaults to ~/.local/share/meetscribe
     data_dir: Path = field(default_factory=lambda: Path.home() / ".local/share/meetscribe")
-    upload_dir: Path = field(default_factory=lambda: Path.home() / ".local/share/meetscribe/uploads")
-    db_path: Path = field(default_factory=lambda: Path.home() / ".local/share/meetscribe/meetscribe.db")
+    upload_dir: Path = field(
+        default_factory=lambda: Path.home() / ".local/share/meetscribe/uploads"
+    )
+    db_path: Path = field(
+        default_factory=lambda: Path.home() / ".local/share/meetscribe/meetscribe.db"
+    )
 
     # API
     host: str = "0.0.0.0"

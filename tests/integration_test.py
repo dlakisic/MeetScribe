@@ -1,8 +1,10 @@
-import time
-import subprocess
-import requests
-import sys
 import os
+import subprocess
+import sys
+import time
+
+import requests
+
 
 def test_backend_startup():
     print("Starting backend...")
@@ -13,12 +15,12 @@ def test_backend_startup():
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
-    
+
     try:
         # Wait for startup
         print("Waiting for startup...")
         time.sleep(5)
-        
+
         # Check if process is still running
         if process.poll() is not None:
             stdout, stderr = process.communicate()
@@ -32,7 +34,7 @@ def test_backend_startup():
         response = requests.get("http://localhost:8002/health")
         print(f"Status Code: {response.status_code}")
         print(f"Response: {response.json()}")
-        
+
         assert response.status_code == 200
         assert response.json()["status"] == "ok"
         print("✅ Backend is healthy")
@@ -41,6 +43,7 @@ def test_backend_startup():
         print("Killing backend...")
         process.terminate()
         process.wait()
+
 
 if __name__ == "__main__":
     try:

@@ -1,7 +1,10 @@
 from datetime import datetime
-from sqlmodel import select, desc
+
+from sqlmodel import desc, select
+
 from ..database import Database
-from ..models import Meeting, Transcript, Segment
+from ..models import Meeting, Segment, Transcript
+
 
 class MeetingRepository:
     """Repository for accessing meeting data via SQLModel."""
@@ -56,12 +59,7 @@ class MeetingRepository:
             transcript = results.first()
 
             if not transcript:
-                transcript = Transcript(
-                    meeting_id=meeting_id,
-                    full_text="",
-                    formatted="",
-                    stats={}
-                )
+                transcript = Transcript(meeting_id=meeting_id, full_text="", formatted="", stats={})
 
             # Update transcript fields
             transcript.full_text = " ".join(seg["text"] for seg in segments)
@@ -75,7 +73,7 @@ class MeetingRepository:
             existing_segments = await session.exec(stmt)
             for seg in existing_segments.all():
                 await session.delete(seg)
-            
+
             # Add new segments
             for seg_data in segments:
                 segment = Segment(
@@ -90,7 +88,7 @@ class MeetingRepository:
             # Update meeting status
             meeting = await session.get(Meeting, meeting_id)
             if meeting:
-                meeting.status = 'completed'
+                meeting.status = "completed"
                 meeting.updated_at = datetime.now()
                 session.add(meeting)
 
@@ -108,12 +106,14 @@ class MeetingRepository:
             statement = select(Transcript).where(Transcript.meeting_id == meeting_id)
             results = await session.exec(statement)
             transcript = results.first()
-            
+
             if not transcript:
                 return None
-            
+
             # Load segments
-            stmt_seg = select(Segment).where(Segment.meeting_id == meeting_id).order_by(Segment.start_time)
+            stmt_seg = (
+                select(Segment).where(Segment.meeting_id == meeting_id).order_by(Segment.start_time)
+            )
             results_seg = await session.exec(stmt_seg)
             segments = results_seg.all()
 
@@ -126,15 +126,25 @@ class MeetingRepository:
         """List all meetings."""
         async with self.db.session() as session:
             # We want to join with Transcript to verify existence, like the LEFT JOIN before
-            # BUT SQLModel/SQLAlchemy async joins are verbose. 
+            # BUT SQLModel/SQLAlchemy async joins are verbose.
             # For list, just fetching meetings is enough, the frontend checks details later.
             # To simulate "has_transcript", we can do a naive check or eager load.
             # Let's keep it simple: just list meetings for now, frontend will query details if needed.
             # To match previous behavior helper "has_transcript":
-            
+
             statement = select(Meeting).order_by(desc(Meeting.date)).offset(offset).limit(limit)
             results = await session.exec(statement)
             meetings = results.all()
-            
+
             # Convert to dicts
             return [m.model_dump() for m in meetings]
+
+    async def save_extracted_data(self, meeting_id: int, data: dict):
+        """Save extracted data for a meeting."""
+        async with self.db.session() as session:
+            meeting = await session.get(Meeting, meeting_id)
+            if meeting:
+                meeting.extracted_data = data
+                meeting.updated_at = datetime.now()
+                session.add(meeting)
+                await session.commit()

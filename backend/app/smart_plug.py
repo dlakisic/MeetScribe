@@ -3,9 +3,8 @@ Smart plug control via tinytuya for GPU PC power management.
 """
 
 import asyncio
-import tinytuya
-from dataclasses import dataclass
 
+import tinytuya
 
 from .config import SmartPlugConfig
 

@@ -1,8 +1,11 @@
 import tempfile
 from pathlib import Path
+
 from faster_whisper import WhisperModel
-from .domain import TranscriptSegment
+
 from .audio import convert_to_wav
+from .domain import TranscriptSegment
+
 
 class WhisperTranscriber:
     def __init__(self, model_size: str = "large-v3", device: str = "cuda"):
@@ -37,12 +40,14 @@ class WhisperTranscriber:
 
             result = []
             for segment in segments:
-                result.append(TranscriptSegment(
-                    speaker=speaker_label,
-                    text=segment.text.strip(),
-                    start=segment.start,
-                    end=segment.end,
-                ))
+                result.append(
+                    TranscriptSegment(
+                        speaker=speaker_label,
+                        text=segment.text.strip(),
+                        start=segment.start,
+                        end=segment.end,
+                    )
+                )
             return result
 
         finally:

@@ -2,9 +2,10 @@
 
 import asyncio
 import json
-import httpx
-from pathlib import Path
 from dataclasses import dataclass
+from pathlib import Path
+
+import httpx
 
 from .config import Config
 
@@ -108,6 +109,7 @@ class FallbackTranscriber:
         """Run transcription locally on CPU."""
         # Import here to avoid loading the model unless needed
         import sys
+
         sys.path.insert(0, str(Path(__file__).parent.parent.parent / "gpu-worker"))
 
         try:
@@ -156,6 +158,7 @@ class TranscriptionService:
         # Initialize smart plug if configured
         if config.smart_plug.enabled:
             from .smart_plug import SmartPlug
+
             self.smart_plug = SmartPlug(config.smart_plug)
             print(f"[SmartPlug] Configured for device {config.smart_plug.device_id}")
 
@@ -206,7 +209,9 @@ class TranscriptionService:
             gpu_available = await self._try_wake_gpu(job_id)
 
         if gpu_available:
-            print(f"[{job_id}] Using GPU worker at {self.config.gpu.host}:{self.config.gpu.worker_port}")
+            print(
+                f"[{job_id}] Using GPU worker at {self.config.gpu.host}:{self.config.gpu.worker_port}"
+            )
             result = await self.gpu_client.transcribe(mic_path, tab_path, metadata)
             if result.success:
                 return result
