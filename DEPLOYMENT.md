@@ -67,8 +67,13 @@ This guide explains how to deploy MeetScribe on a **Split Architecture**:
 ## Troubleshooting
 
 -   **Backend cannot reach Worker**:
-    -   Check if 4070 PC firewall allows port `8001`.
+    -   **Firewall (Windows)**: Run this in PowerShell (Admin) to open port 8001:
+        ```powershell
+        New-NetFirewallRule -DisplayName "MeetScribe Worker Allow" -Direction Inbound -LocalPort 8001 -Protocol TCP -Action Allow
+        ```
     -   Verify `GPU_HOST` in `.env` on N100 matches 4070 IP.
+-   **Worker startup is slow**:
+    -   On first run, the worker downloads the `large-v3` model (~3GB). The server will not respond to requests until this is complete. Watch logs with `docker compose logs -f`.
 -   **GPU not found**:
     -   Ensure `nvidia-smi` works inside the container:
         ```bash
