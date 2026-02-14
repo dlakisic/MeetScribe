@@ -1,0 +1,24 @@
+services:
+  backend:
+    build:
+      context: ../../
+      dockerfile: backend/Dockerfile
+    image: meetscribe-backend:latest
+    container_name: meetscribe-backend
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8090}:8000"
+    environment:
+      - MEETSCRIBE_DATA_DIR=/data
+      - MEETSCRIBE_GPU_HOST=${GPU_HOST}
+      - MEETSCRIBE_GPU_USER=${GPU_USER:-dino}
+      - MEETSCRIBE_API_TOKEN=${API_TOKEN}
+      # Smart Plug Config (Optional)
+      - MEETSCRIBE_PLUG_DEVICE_ID=${PLUG_DEVICE_ID}
+      - MEETSCRIBE_PLUG_IP=${PLUG_IP}
+      - MEETSCRIBE_PLUG_LOCAL_KEY=${PLUG_LOCAL_KEY}
+    volumes:
+      - meetscribe_data:/data
+
+volumes:
+  meetscribe_data:
