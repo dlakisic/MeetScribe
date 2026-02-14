@@ -6,9 +6,10 @@ import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
 
-from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, UploadFile
 
 from .config import Config, load_config
+from .core.auth import security, verify_token
 from .database import Database
 from .gpu_client import TranscriptionService
 from .repositories.meeting_repository import MeetingRepository
@@ -58,6 +59,12 @@ app = FastAPI(
 )
 
 
+# Auth dependency that uses global config
+def require_auth(credentials=Depends(security)):
+    """Dependency to require authentication on protected endpoints."""
+    verify_token(credentials, config.api_token)
+
+
 @app.get("/")
 async def root():
     """Root endpoint."""
@@ -75,7 +82,7 @@ async def health():
     }
 
 
-@app.post("/api/upload")
+@app.post("/api/upload", dependencies=[Depends(require_auth)])
 async def upload_meeting(
     background_tasks: BackgroundTasks,
     mic_file: UploadFile = File(..., description="Microphone audio file"),
@@ -135,7 +142,7 @@ async def upload_meeting(
     }
 
 
-@app.get("/api/status/{job_id}")
+@app.get("/api/status/{job_id}", dependencies=[Depends(require_auth)])
 async def get_job_status(job_id: str):
     """Get the status of a transcription job."""
     job = job_store.get_job(job_id)
@@ -144,13 +151,13 @@ async def get_job_status(job_id: str):
     return job
 
 
-@app.get("/api/transcripts")
+@app.get("/api/transcripts", dependencies=[Depends(require_auth)])
 async def list_transcripts(limit: int = 50, offset: int = 0):
     """List all meetings with their transcription status."""
     return await meeting_service.list_meetings(limit, offset)
 
 
-@app.get("/api/transcripts/{meeting_id}")
+@app.get("/api/transcripts/{meeting_id}", dependencies=[Depends(require_auth)])
 async def get_transcript(meeting_id: int):
     """Get the full transcript for a meeting."""
     result = await meeting_service.get_meeting_details(meeting_id)

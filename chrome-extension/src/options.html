@@ -54,7 +54,8 @@
 
     input[type="text"],
     input[type="url"],
-    input[type="number"] {
+    input[type="number"],
+    input[type="password"] {
       width: 100%;
       padding: 10px;
       border: 1px solid #ddd;
@@ -116,6 +117,10 @@
       <label for="backend-url">URL du backend</label>
       <input type="url" id="backend-url" placeholder="http://192.168.1.19:8888">
     </div>
+    <div class="form-group">
+      <label for="api-token">Token API (optionnel)</label>
+      <input type="password" id="api-token" placeholder="Laisser vide si pas d'auth">
+    </div>
   </div>
 
   <div class="section">
@@ -136,14 +141,16 @@
 
   <script>
     const backendUrl = document.getElementById('backend-url');
+    const apiToken = document.getElementById('api-token');
     const autoStartDelay = document.getElementById('auto-start-delay');
     const speakerName = document.getElementById('speaker-name');
     const saveBtn = document.getElementById('save-btn');
     const messageEl = document.getElementById('message');
 
     // Load saved config
-    chrome.storage.local.get(['backendUrl', 'autoStartDelay', 'speakerName'], (config) => {
+    chrome.storage.local.get(['backendUrl', 'apiToken', 'autoStartDelay', 'speakerName'], (config) => {
       backendUrl.value = config.backendUrl || 'http://192.168.1.19:8888';
+      apiToken.value = config.apiToken || '';
       autoStartDelay.value = config.autoStartDelay || 5;
       speakerName.value = config.speakerName || 'Dino';
     });
@@ -152,6 +159,7 @@
     saveBtn.addEventListener('click', async () => {
       const config = {
         backendUrl: backendUrl.value,
+        apiToken: apiToken.value || null,
         autoStartDelay: parseInt(autoStartDelay.value, 10),
         speakerName: speakerName.value,
       };

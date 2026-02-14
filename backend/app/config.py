@@ -56,6 +56,7 @@ class Config:
     # API
     host: str = "0.0.0.0"
     port: int = 8000
+    api_token: str | None = None  # If set, requires Bearer token auth
 
     # GPU Worker
     gpu: GPUWorkerConfig = field(default_factory=GPUWorkerConfig)
@@ -96,6 +97,9 @@ def load_config() -> Config:
 
     if speaker := os.getenv("MEETSCRIBE_SPEAKER_NAME"):
         config.local_speaker_name = speaker
+
+    if api_token := os.getenv("MEETSCRIBE_API_TOKEN"):
+        config.api_token = api_token
 
     # Smart plug config
     if plug_id := os.getenv("MEETSCRIBE_PLUG_DEVICE_ID"):

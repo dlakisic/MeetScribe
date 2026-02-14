@@ -6,6 +6,7 @@
 // Configuration
 const CONFIG = {
   backendUrl: 'http://192.168.1.19:8888',
+  apiToken: null, // Optional: Bearer token for API auth
   autoStartDelay: 5000, // Wait 5s before auto-starting recording
   platforms: {
     'meet.google.com': { name: 'Google Meet', priority: 0 },
@@ -35,15 +36,30 @@ chrome.runtime.onInstalled.addListener(() => {
 
 // Load config from storage
 async function loadConfig() {
-  const stored = await chrome.storage.local.get(['backendUrl']);
+  const stored = await chrome.storage.local.get(['backendUrl', 'apiToken']);
   if (stored.backendUrl) {
     CONFIG.backendUrl = stored.backendUrl;
+  }
+  if (stored.apiToken) {
+    CONFIG.apiToken = stored.apiToken;
   }
 }
 
 // Save config to storage
 async function saveConfig() {
-  await chrome.storage.local.set({ backendUrl: CONFIG.backendUrl });
+  await chrome.storage.local.set({
+    backendUrl: CONFIG.backendUrl,
+    apiToken: CONFIG.apiToken,
+  });
+}
+
+// Helper to build fetch headers with optional auth
+function getAuthHeaders() {
+  const headers = {};
+  if (CONFIG.apiToken) {
+    headers['Authorization'] = `Bearer ${CONFIG.apiToken}`;
+  }
+  return headers;
 }
 
 // Check if URL matches a meeting platform
@@ -222,6 +238,7 @@ async function uploadRecording(micBlob, tabBlob, duration) {
   try {
     const response = await fetch(`${CONFIG.backendUrl}/api/upload`, {
       method: 'POST',
+      headers: getAuthHeaders(),
       body: formData,
     });
 
