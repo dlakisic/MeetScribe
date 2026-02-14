@@ -1,4 +1,5 @@
-const API_URL = "http://localhost:8000";
+let API_URL = "http://localhost:8090"; // Default, will be updated from storage
+let API_TOKEN = ""; // Default empty
 
 // --- State ---
 let selectedMeetingId = null;
@@ -18,10 +19,24 @@ const decisionsList = document.getElementById('decisions-list');
 const uploadBtn = document.getElementById('upload-btn');
 const fileInput = document.getElementById('file-upload');
 
+// Settings Elements
+const settingsBtn = document.getElementById('settings-btn');
+const settingsModal = document.getElementById('settings-modal');
+const closeSettings = document.getElementById('close-settings');
+const saveSettingsBtn = document.getElementById('save-settings-btn');
+const apiUrlInput = document.getElementById('api-url-input');
+const apiTokenInput = document.getElementById('api-token-input');
+
+
 // --- Initialization ---
 console.log('Main.js loaded');
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     console.log('DOMContentLoaded fired');
+
+    // Load config
+    await loadConfig();
+
+    // Initial fetch
     loadMeetings();
 
     // Upload handlers
@@ -38,7 +53,81 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         console.error('Upload elements not found', { uploadBtn, fileInput });
     }
+
+    // Settings handlers
+    setupSettingsHandlers();
 });
+
+// --- Configuration ---
+async function loadConfig() {
+    return new Promise((resolve) => {
+        chrome.storage.sync.get(['api_url', 'api_token'], (result) => {
+            if (result.api_url) {
+                API_URL = result.api_url;
+                console.log('Loaded API URL from storage:', API_URL);
+            } else {
+                console.log('Using default API URL:', API_URL);
+            }
+            if (result.api_token) {
+                API_TOKEN = result.api_token;
+                console.log('Loaded API Token from storage');
+            }
+
+            // Update input placeholder/value
+            if (apiUrlInput) apiUrlInput.value = API_URL;
+            if (apiTokenInput) apiTokenInput.value = API_TOKEN;
+            resolve();
+        });
+    });
+}
+
+function setupSettingsHandlers() {
+    if (!settingsBtn || !settingsModal) return;
+
+    settingsBtn.addEventListener('click', () => {
+        settingsModal.style.display = 'flex';
+        apiUrlInput.value = API_URL;
+        apiTokenInput.value = API_TOKEN;
+    });
+
+    closeSettings.addEventListener('click', () => {
+        settingsModal.style.display = 'none';
+    });
+
+    window.addEventListener('click', (event) => {
+        if (event.target == settingsModal) {
+            settingsModal.style.display = 'none';
+        }
+    });
+
+    saveSettingsBtn.addEventListener('click', () => {
+        const newUrl = apiUrlInput.value.trim().replace(/\/$/, ""); // Remove trailing slash
+        const newToken = apiTokenInput.value.trim();
+
+        if (newUrl) {
+            API_URL = newUrl;
+            API_TOKEN = newToken;
+
+            chrome.storage.sync.set({ api_url: API_URL, api_token: API_TOKEN }, () => {
+                console.log('Saved Configuration');
+                settingsModal.style.display = 'none';
+                // Refresh list with new URL/Token
+                loadMeetings();
+                alert('Configuration enregistrée !');
+            });
+        }
+    });
+}
+
+// --- Helper: Authenticated Fetch ---
+async function authFetch(url, options = {}) {
+    const headers = options.headers || {};
+    if (API_TOKEN) {
+        headers['Authorization'] = `Bearer ${API_TOKEN}`;
+    }
+    options.headers = headers;
+    return fetch(url, options);
+}
 
 // --- Actions ---
 async function handleFileUpload(event) {
@@ -65,11 +154,19 @@ async function handleFileUpload(event) {
     uploadBtn.disabled = true;
 
     try {
+        // Use authFetch but we need to handle FormData headers carefully
+        // fetch automatically ignores Content-Type for FormData if not set, which is what we want
+        // So we manually construct headers for auth
+        const headers = {};
+        if (API_TOKEN) headers['Authorization'] = `Bearer ${API_TOKEN}`;
+
         const res = await fetch(`${API_URL}/api/upload`, {
             method: 'POST',
+            headers: headers,
             body: formData
         });
 
+        if (res.status === 401) throw new Error('Non autorisé (vérifiez votre token)');
         if (!res.ok) throw new Error('Upload failed');
 
         const data = await res.json();
@@ -91,9 +188,13 @@ async function handleFileUpload(event) {
 // --- API Calls ---
 async function fetchMeetings() {
     try {
-        const res = await fetch(`${API_URL}/api/transcripts?limit=50&offset=0`, {
+        const res = await authFetch(`${API_URL}/api/transcripts?limit=50&offset=0`, {
             method: "GET"
         });
+        if (res.status === 401) {
+            console.error("Unauthorized fetchMeetings");
+            return { meetings: [] }; // Silent fail or handle UI
+        }
         if (!res.ok) throw new Error("Failed to fetch meetings");
         return await res.json();
     } catch (err) {
@@ -104,7 +205,8 @@ async function fetchMeetings() {
 
 async function fetchMeetingDetails(id) {
     try {
-        const res = await fetch(`${API_URL}/api/transcripts/${id}`);
+        const res = await authFetch(`${API_URL}/api/transcripts/${id}`);
+        if (res.status === 401) throw new Error("Unauthorized");
         if (!res.ok) throw new Error("Failed to fetch details");
         return await res.json();
     } catch (err) {

@@ -25,7 +25,29 @@
         Chargement...
       </div>
     </div>
+    <div class="sidebar-footer">
+      <button id="settings-btn" class="btn-icon" title="Paramètres">
+        ⚙️
+      </button>
+    </div>
   </aside>
+
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <span id="close-settings" class="close">&times;</span>
+      <h2>Paramètres</h2>
+      <div class="form-group">
+        <label for="api-url-input">URL de l'API Backend</label>
+        <input type="text" id="api-url-input" placeholder="http://localhost:8090">
+      </div>
+      <div class="form-group">
+        <label for="api-token-input">Token API</label>
+        <input type="password" id="api-token-input" placeholder="Entrez le token défini dans .env">
+      </div>
+      <button id="save-settings-btn" class="btn">Enregistrer</button>
+    </div>
+  </div>
 
   <!-- Main Content -->
   <main class="main-content">
