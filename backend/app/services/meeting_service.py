@@ -39,7 +39,7 @@ class MeetingService:
         self,
         job_id: str,
         meeting_id: int,
-        mic_path: Path,
+        mic_path: Path | None,
         tab_path: Path,
         metadata: dict,
     ):

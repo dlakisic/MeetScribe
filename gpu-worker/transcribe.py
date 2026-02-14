@@ -18,7 +18,7 @@ class Transcriber(WhisperTranscriber):
 
 
 def process_meeting(
-    mic_path: Path,
+    mic_path: Path | None,
     tab_path: Path,
     metadata: dict,
     output_path: Path,

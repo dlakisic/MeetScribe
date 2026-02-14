@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <title>MeetScribe Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="main.css">
+</head>
+
+<body>
+
+  <!-- Sidebar: Meeting History -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <img src="../icons/icon48.png" alt="Logo">
+      <h1>MeetScribe</h1>
+    </div>
+    <div id="meeting-list" class="meeting-list">
+      <!-- Meeting items will be injected here -->
+      <div class="empty-state" style="height: 100px;">
+        Chargement...
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+
+    <!-- Header -->
+    <header class="content-header">
+      <div class="header-title">
+        <h2 id="current-title">Sélectionnez une réunion</h2>
+        <div class="header-meta">
+          <span id="current-date">--/--/--</span>
+          <span id="current-platform">--</span>
+          <span id="current-duration">--:--</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <input type="file" id="file-upload" accept="audio/*,video/*" style="display: none;">
+        <button id="upload-btn" class="btn">Importer un fichier</button>
+      </div>
+    </header>
+
+    <div class="content-body" id="details-view" style="display: none;">
+
+      <!-- Center: Transcript -->
+      <section class="transcript-view">
+        <div class="section-header">Transcript</div>
+        <div id="transcript-container" class="scroll-area">
+          <!-- Segments injected here -->
+        </div>
+      </section>
+
+      <!-- Right: Insights -->
+      <section class="insights-view">
+        <div class="section-header">Insights</div>
+        <div class="scroll-area">
+
+          <!-- Summary -->
+          <div class="insight-card">
+            <div class="insight-title">Résumé</div>
+            <p id="summary-text" class="summary-text">...</p>
+          </div>
+
+          <!-- Action Items -->
+          <div class="insight-card">
+            <div class="insight-title">Actions</div>
+            <div id="actions-list">
+              <!-- Actions injected here -->
+            </div>
+          </div>
+
+          <!-- Decisions -->
+          <div class="insight-card">
+            <div class="insight-title">Décisions Clés</div>
+            <ul id="decisions-list" class="insight-list">
+              <!-- Decisions injected here -->
+            </ul>
+          </div>
+
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Empty State for Main View -->
+    <div id="main-empty" class="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round"
+          d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+      </svg>
+      <p>Sélectionnez une réunion pour voir les détails</p>
+    </div>
+
+  </main>
+
+  <script src="main.js" type="module"></script>
+</body>
+
+</html>

@@ -1,8 +1,31 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
   <style>
+    :root {
+      --bg: #0c0c0f;
+      --surface: #161619;
+      --surface-raised: #1e1e22;
+      --border: #2a2a2f;
+      --text: #e8e6e3;
+      --text-dim: #6b6a6d;
+      --text-muted: #45444a;
+      --amber: #e5a43c;
+      --amber-dim: #e5a43c33;
+      --red: #e5443c;
+      --red-dim: #e5443c22;
+      --green: #3ce577;
+      --green-dim: #3ce57733;
+      --mono: 'DM Mono', monospace;
+      --sans: 'Outfit', -apple-system, sans-serif;
+    }
+
     * {
       margin: 0;
       padding: 0;
@@ -10,181 +33,291 @@
     }
 
     body {
-      width: 300px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #1a1a2e;
-      color: #eee;
-      padding: 16px;
+      width: 320px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      overflow: hidden;
     }
 
-    .header {
+    /* ---- Top bar ---- */
+    .topbar {
       display: flex;
       align-items: center;
-      gap: 10px;
-      margin-bottom: 16px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid #333;
-    }
-
-    .header img {
-      width: 32px;
-      height: 32px;
-    }
-
-    .header h1 {
-      font-size: 18px;
-      font-weight: 600;
-    }
-
-    .status {
-      background: #252540;
-      border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 12px;
-    }
-
-    .status-row {
-      display: flex;
       justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid var(--border);
     }
 
-    .status-row:last-child {
-      margin-bottom: 0;
-    }
-
-    .status-label {
-      color: #888;
-      font-size: 12px;
-    }
-
-    .status-value {
-      font-size: 14px;
-      font-weight: 500;
-    }
-
-    .status-value.recording {
-      color: #ff4444;
-    }
-
-    .status-value.idle {
-      color: #888;
-    }
-
-    .status-value.connected {
-      color: #44ff44;
-    }
-
-    .recording-indicator {
+    .brand {
       display: flex;
       align-items: center;
       gap: 8px;
     }
 
-    .recording-dot {
-      width: 10px;
-      height: 10px;
-      background: #ff4444;
-      border-radius: 50%;
-      animation: pulse 1s infinite;
+    .brand img {
+      width: 20px;
+      height: 20px;
     }
 
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-
-    .btn {
-      width: 100%;
-      padding: 12px;
-      border: none;
-      border-radius: 8px;
-      font-size: 14px;
+    .brand span {
       font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      margin-bottom: 8px;
-    }
-
-    .btn-primary {
-      background: #4a4aff;
-      color: white;
-    }
-
-    .btn-primary:hover {
-      background: #5a5aff;
-    }
-
-    .btn-danger {
-      background: #ff4444;
-      color: white;
-    }
-
-    .btn-danger:hover {
-      background: #ff5555;
-    }
-
-    .btn-secondary {
-      background: #333;
-      color: #eee;
-    }
-
-    .btn-secondary:hover {
-      background: #444;
-    }
-
-    .btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .shortcuts {
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid #333;
-    }
-
-    .shortcut {
-      display: flex;
-      justify-content: space-between;
-      font-size: 12px;
-      color: #888;
-      margin-bottom: 4px;
-    }
-
-    .shortcut kbd {
-      background: #333;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-family: monospace;
-    }
-
-    .meeting-info {
-      background: #2a2a4a;
-      border-radius: 6px;
-      padding: 10px;
-      margin-bottom: 12px;
       font-size: 13px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
     }
 
-    .meeting-title {
+    .connection-badge {
+      font-family: var(--mono);
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 3px;
+      background: var(--surface-raised);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      letter-spacing: 0.5px;
+    }
+
+    .connection-badge.connected {
+      color: var(--green);
+      border-color: var(--green-dim);
+      background: #3ce57709;
+    }
+
+    .connection-badge.offline {
+      color: var(--text-muted);
+    }
+
+    /* ---- Channel strip (status area) ---- */
+    .channel {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .meters {
+      display: flex;
+      gap: 16px;
+    }
+
+    .meter {
+      flex: 1;
+    }
+
+    .meter-label {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 6px;
+    }
+
+    .meter-value {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-dim);
+    }
+
+    .meter-value.live {
+      color: var(--red);
+    }
+
+    .meter-value.standby {
+      color: var(--text-muted);
+    }
+
+    /* ---- Meeting info ---- */
+    .session {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      animation: slideIn 0.2s ease-out;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-4px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .session-title {
+      font-size: 13px;
       font-weight: 600;
-      margin-bottom: 4px;
+      color: var(--text);
+      margin-bottom: 6px;
+      line-height: 1.3;
       word-break: break-word;
     }
 
-    .meeting-duration {
-      color: #888;
-      font-size: 12px;
+    .session-meta {
+      display: flex;
+      gap: 12px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-dim);
     }
 
-    .meeting-participants {
-      color: #aaa;
+    .session-meta span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .session-participants {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
       font-size: 11px;
-      margin-top: 6px;
-      padding-top: 6px;
-      border-top: 1px solid #333;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    /* ---- Transport controls ---- */
+    .transport {
+      padding: 16px;
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-rec {
+      flex: 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      height: 44px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-rec:hover {
+      background: var(--surface-raised);
+      border-color: #3a3a40;
+    }
+
+    .btn-rec:active {
+      transform: scale(0.98);
+    }
+
+    .btn-rec:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-rec .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      transition: background 0.2s ease;
+    }
+
+    .btn-rec.armed {
+      border-color: var(--red);
+      background: var(--red-dim);
+      color: var(--red);
+      box-shadow: 0 0 20px var(--red-dim);
+    }
+
+    .btn-rec.armed .dot {
+      background: var(--red);
+      animation: recPulse 1.2s ease-in-out infinite;
+    }
+
+    @keyframes recPulse {
+
+      0%,
+      100% {
+        opacity: 1;
+        box-shadow: 0 0 0 0 var(--red);
+      }
+
+      50% {
+        opacity: 0.7;
+        box-shadow: 0 0 8px 2px var(--red-dim);
+      }
+    }
+
+    .btn-snap {
+      width: 44px;
+      height: 44px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-snap:hover {
+      background: var(--surface-raised);
+      border-color: #3a3a40;
+      color: var(--text);
+    }
+
+    .btn-snap:active {
+      transform: scale(0.95);
+    }
+
+    .btn-snap:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-snap svg {
+      width: 16px;
+      height: 16px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* ---- Footer shortcuts ---- */
+    .footer {
+      padding: 0 16px 14px;
+      display: flex;
+      gap: 16px;
+    }
+
+    .hotkey {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .hotkey kbd {
+      font-family: var(--mono);
+      font-size: 9px;
+      padding: 2px 5px;
+      border-radius: 3px;
+      background: var(--surface-raised);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
     }
 
     .hidden {
@@ -192,48 +325,70 @@
     }
   </style>
 </head>
+
 <body>
-  <div class="header">
-    <img src="../icons/icon48.png" alt="MeetScribe">
-    <h1>MeetScribe</h1>
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="brand">
+      <img src="../icons/icon48.png" alt="">
+      <span>MeetScribe</span>
+    </div>
+    <div id="backend-status" class="connection-badge">OFFLINE</div>
   </div>
 
-  <div class="status">
-    <div class="status-row">
-      <span class="status-label">Status</span>
-      <span id="status-text" class="status-value idle">Inactif</span>
-    </div>
-    <div class="status-row">
-      <span class="status-label">Backend</span>
-      <span id="backend-status" class="status-value">...</span>
+  <!-- Channel strip -->
+  <div class="channel">
+    <div class="meters">
+      <div class="meter">
+        <div class="meter-label">Status</div>
+        <div id="status-text" class="meter-value standby">STANDBY</div>
+      </div>
+      <div class="meter">
+        <div class="meter-label">Durée</div>
+        <div id="duration-display" class="meter-value">--:--</div>
+      </div>
+      <div class="meter">
+        <div class="meter-label">Captures</div>
+        <div id="capture-count" class="meter-value">0</div>
+      </div>
     </div>
   </div>
 
-  <div id="meeting-info" class="meeting-info hidden">
-    <div id="meeting-title" class="meeting-title"></div>
-    <div id="meeting-duration" class="meeting-duration"></div>
-    <div id="meeting-participants" class="meeting-participants"></div>
+  <!-- Session info (visible during recording) -->
+  <div id="meeting-info" class="session hidden">
+    <div id="meeting-title" class="session-title"></div>
+    <div class="session-meta">
+      <span id="meeting-platform"></span>
+    </div>
+    <div id="meeting-participants" class="session-participants"></div>
   </div>
 
-  <button id="toggle-btn" class="btn btn-primary">
-    Démarrer l'enregistrement
-  </button>
+  <!-- Transport -->
+  <div class="transport">
+    <button id="toggle-btn" class="btn-rec">
+      <span class="dot"></span>
+      <span class="label">ENREGISTRER</span>
+    </button>
+    <button id="screenshot-btn" class="btn-snap" disabled title="Capturer un screenshot">
+      <svg viewBox="0 0 24 24">
+        <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
+        <circle cx="12" cy="13" r="4" />
+      </svg>
+    </button>
+  </div>
 
-  <button id="screenshot-btn" class="btn btn-secondary" disabled>
-    Capturer un screenshot
-  </button>
-
-  <div class="shortcuts">
-    <div class="shortcut">
-      <span>Screenshot</span>
-      <kbd>Ctrl+Shift+S</kbd>
-    </div>
-    <div class="shortcut">
-      <span>Toggle recording</span>
-      <kbd>Ctrl+Shift+R</kbd>
-    </div>
+  <!-- Footer -->
+  <div class="footer">
+    <div class="hotkey">Rec <kbd>Ctrl+Shift+R</kbd></div>
+    <div style="flex: 1"></div>
+    <button id="dashboard-btn" class="hotkey"
+      style="background: none; border: none; cursor: pointer; color: var(--text);">
+      Dashboard ↗
+    </button>
   </div>
 
   <script src="popup.js"></script>
 </body>
+
 </html>

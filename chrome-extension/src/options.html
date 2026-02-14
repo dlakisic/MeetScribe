@@ -2,142 +2,276 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>MeetScribe - Options</title>
+  <title>MeetScribe - Configuration</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
+    :root {
+      --bg: #0c0c0f;
+      --surface: #161619;
+      --surface-raised: #1e1e22;
+      --border: #2a2a2f;
+      --border-focus: #4a4a52;
+      --text: #e8e6e3;
+      --text-dim: #6b6a6d;
+      --text-muted: #45444a;
+      --amber: #e5a43c;
+      --amber-dim: #e5a43c33;
+      --green: #3ce577;
+      --green-dim: #3ce57733;
+      --red: #e5443c;
+      --mono: 'DM Mono', monospace;
+      --sans: 'Outfit', -apple-system, sans-serif;
     }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #f5f5f5;
-      padding: 40px;
-      max-width: 600px;
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ---- Noise texture overlay ---- */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .shell {
+      position: relative;
+      z-index: 1;
+      max-width: 520px;
       margin: 0 auto;
+      padding: 48px 24px;
     }
 
-    h1 {
-      margin-bottom: 24px;
-      color: #333;
+    /* ---- Header ---- */
+    .page-header {
+      margin-bottom: 40px;
     }
 
+    .page-header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      margin-bottom: 6px;
+    }
+
+    .page-header p {
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+
+    /* ---- Sections ---- */
     .section {
-      background: white;
-      border-radius: 8px;
-      padding: 20px;
-      margin-bottom: 20px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 24px;
     }
 
-    .section h2 {
-      font-size: 16px;
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       margin-bottom: 16px;
-      color: #333;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
     }
 
-    .form-group {
+    .section-header h2 {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--text-muted);
+    }
+
+    /* ---- Form fields ---- */
+    .field {
       margin-bottom: 16px;
     }
 
-    .form-group:last-child {
+    .field:last-child {
       margin-bottom: 0;
     }
 
-    label {
-      display: block;
-      margin-bottom: 6px;
-      font-size: 14px;
-      color: #555;
-    }
-
-    input[type="text"],
-    input[type="url"],
-    input[type="number"],
-    input[type="password"] {
-      width: 100%;
-      padding: 10px;
-      border: 1px solid #ddd;
+    .field-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
       border-radius: 6px;
-      font-size: 14px;
+      transition: border-color 0.15s ease;
     }
 
-    input:focus {
+    .field-row:focus-within {
+      border-color: var(--border-focus);
+    }
+
+    .field-label {
+      flex-shrink: 0;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-dim);
+      min-width: 100px;
+    }
+
+    .field-input {
+      flex: 1;
+      background: none;
+      border: none;
       outline: none;
-      border-color: #4a4aff;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--text);
+      text-align: right;
     }
 
-    .btn {
-      padding: 10px 20px;
+    .field-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    /* Number input: remove spinners */
+    .field-input[type="number"]::-webkit-inner-spin-button,
+    .field-input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+    }
+
+    .field-input[type="number"] {
+      -moz-appearance: textfield;
+    }
+
+    .field-hint {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 6px;
+      padding-left: 14px;
+      font-family: var(--mono);
+      letter-spacing: 0.2px;
+    }
+
+    /* ---- Save bar ---- */
+    .save-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    .btn-save {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 24px;
+      background: var(--text);
+      color: var(--bg);
       border: none;
       border-radius: 6px;
-      font-size: 14px;
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.15s ease;
     }
 
-    .btn-primary {
-      background: #4a4aff;
-      color: white;
+    .btn-save:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
     }
 
-    .btn-primary:hover {
-      background: #5a5aff;
+    .btn-save:active {
+      transform: scale(0.98);
     }
 
-    .message {
-      padding: 10px;
-      border-radius: 6px;
-      margin-top: 16px;
-      font-size: 14px;
+    .toast {
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 6px 12px;
+      border-radius: 4px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
     }
 
-    .message.success {
-      background: #d4edda;
-      color: #155724;
+    .toast.success {
+      color: var(--green);
+      background: var(--green-dim);
+      opacity: 1;
     }
 
-    .message.error {
-      background: #f8d7da;
-      color: #721c24;
+    .toast.error {
+      color: var(--red);
+      background: var(--red-dim);
+      opacity: 1;
     }
 
-    .hidden {
-      display: none;
-    }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
-  <h1>MeetScribe - Configuration</h1>
+  <div class="shell">
 
-  <div class="section">
-    <h2>Backend</h2>
-    <div class="form-group">
-      <label for="backend-url">URL du backend</label>
-      <input type="url" id="backend-url" placeholder="http://192.168.1.19:8888">
+    <div class="page-header">
+      <h1>MeetScribe</h1>
+      <p>Configuration de l'extension</p>
     </div>
-    <div class="form-group">
-      <label for="api-token">Token API (optionnel)</label>
-      <input type="password" id="api-token" placeholder="Laisser vide si pas d'auth">
+
+    <!-- Connection -->
+    <div class="section">
+      <div class="section-header">
+        <h2>Connexion</h2>
+      </div>
+      <div class="field">
+        <div class="field-row">
+          <span class="field-label">Backend URL</span>
+          <input class="field-input" type="url" id="backend-url" placeholder="http://192.168.1.19:8888">
+        </div>
+      </div>
+      <div class="field">
+        <div class="field-row">
+          <span class="field-label">Token API</span>
+          <input class="field-input" type="password" id="api-token" placeholder="optionnel">
+        </div>
+        <div class="field-hint">Laisser vide si l'authentification n'est pas activée</div>
+      </div>
     </div>
+
+    <!-- Recording -->
+    <div class="section">
+      <div class="section-header">
+        <h2>Enregistrement</h2>
+      </div>
+      <div class="field">
+        <div class="field-row">
+          <span class="field-label">Délai auto-start</span>
+          <input class="field-input" type="number" id="auto-start-delay" min="0" max="30" value="5">
+        </div>
+        <div class="field-hint">Secondes avant le démarrage automatique</div>
+      </div>
+      <div class="field">
+        <div class="field-row">
+          <span class="field-label">Speaker local</span>
+          <input class="field-input" type="text" id="speaker-name" placeholder="Dino">
+        </div>
+      </div>
+    </div>
+
+    <!-- Save -->
+    <div class="save-bar">
+      <button id="save-btn" class="btn-save">Sauvegarder</button>
+      <div id="message" class="toast"></div>
+    </div>
+
   </div>
-
-  <div class="section">
-    <h2>Enregistrement</h2>
-    <div class="form-group">
-      <label for="auto-start-delay">Délai avant auto-start (secondes)</label>
-      <input type="number" id="auto-start-delay" min="0" max="30" value="5">
-    </div>
-    <div class="form-group">
-      <label for="speaker-name">Nom du speaker local</label>
-      <input type="text" id="speaker-name" placeholder="Dino">
-    </div>
-  </div>
-
-  <button id="save-btn" class="btn btn-primary">Sauvegarder</button>
-
-  <div id="message" class="message hidden"></div>
 
   <script>
     const backendUrl = document.getElementById('backend-url');
@@ -173,15 +307,15 @@
         data: config,
       });
 
-      showMessage('Configuration sauvegardée!', 'success');
+      showMessage('Sauvegardé', 'success');
     });
 
     function showMessage(text, type) {
       messageEl.textContent = text;
-      messageEl.className = `message ${type}`;
+      messageEl.className = `toast ${type}`;
       setTimeout(() => {
-        messageEl.className = 'message hidden';
-      }, 3000);
+        messageEl.className = 'toast';
+      }, 2500);
     }
   </script>
 </body>

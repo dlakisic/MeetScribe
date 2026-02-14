@@ -4,12 +4,15 @@
 
 const statusText = document.getElementById('status-text');
 const backendStatus = document.getElementById('backend-status');
+const durationDisplay = document.getElementById('duration-display');
+const captureCount = document.getElementById('capture-count');
 const meetingInfo = document.getElementById('meeting-info');
 const meetingTitle = document.getElementById('meeting-title');
-const meetingDuration = document.getElementById('meeting-duration');
+const meetingPlatform = document.getElementById('meeting-platform');
 const meetingParticipants = document.getElementById('meeting-participants');
 const toggleBtn = document.getElementById('toggle-btn');
 const screenshotBtn = document.getElementById('screenshot-btn');
+const dashboardBtn = document.getElementById('dashboard-btn');
 
 let updateInterval = null;
 
@@ -38,35 +41,47 @@ async function updateState() {
     });
 
     if (response.isRecording) {
-      statusText.textContent = 'Enregistrement...';
-      statusText.className = 'status-value recording';
-
-      meetingInfo.classList.remove('hidden');
-      meetingTitle.textContent = response.meetingTitle || 'Meeting';
+      statusText.textContent = 'REC';
+      statusText.className = 'meter-value live';
 
       const duration = Math.floor((Date.now() - response.startTime) / 1000);
       const minutes = Math.floor(duration / 60);
       const seconds = duration % 60;
-      meetingDuration.textContent = `${minutes}:${seconds.toString().padStart(2, '0')} - ${response.screenshotCount} capture(s)`;
+      durationDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      durationDisplay.className = 'meter-value live';
+
+      captureCount.textContent = response.screenshotCount || 0;
+
+      meetingInfo.classList.remove('hidden');
+      meetingTitle.textContent = response.meetingTitle || 'Meeting';
+
+      if (response.currentPlatform) {
+        meetingPlatform.textContent = response.currentPlatform;
+      }
 
       // Show participants
       if (response.participants && response.participants.length > 0) {
-        meetingParticipants.textContent = `Participants: ${response.participants.join(', ')}`;
+        meetingParticipants.textContent = response.participants.join(', ');
+        meetingParticipants.classList.remove('hidden');
       } else {
-        meetingParticipants.textContent = '';
+        meetingParticipants.classList.add('hidden');
       }
 
-      toggleBtn.textContent = "Arrêter l'enregistrement";
-      toggleBtn.className = 'btn btn-danger';
+      toggleBtn.querySelector('.label').textContent = 'STOP';
+      toggleBtn.classList.add('armed');
       screenshotBtn.disabled = false;
     } else {
-      statusText.textContent = 'Inactif';
-      statusText.className = 'status-value idle';
+      statusText.textContent = 'STANDBY';
+      statusText.className = 'meter-value standby';
 
+      durationDisplay.textContent = '--:--';
+      durationDisplay.className = 'meter-value';
+
+      captureCount.textContent = '0';
       meetingInfo.classList.add('hidden');
 
-      toggleBtn.textContent = "Démarrer l'enregistrement";
-      toggleBtn.className = 'btn btn-primary';
+      toggleBtn.querySelector('.label').textContent = 'ENREGISTRER';
+      toggleBtn.classList.remove('armed');
       screenshotBtn.disabled = true;
     }
   } catch (error) {
@@ -88,13 +103,15 @@ async function checkBackend() {
     if (response.ok) {
       const data = await response.json();
       backendStatus.textContent = data.gpu_available ? 'GPU' : 'CPU';
-      backendStatus.className = 'status-value connected';
+      backendStatus.classList.add('connected');
+      backendStatus.classList.remove('offline');
     } else {
       throw new Error('Backend error');
     }
   } catch (error) {
-    backendStatus.textContent = 'Hors ligne';
-    backendStatus.className = 'status-value';
+    backendStatus.textContent = 'OFFLINE';
+    backendStatus.classList.add('offline');
+    backendStatus.classList.remove('connected');
   }
 }
 
@@ -131,3 +148,10 @@ screenshotBtn.addEventListener('click', async () => {
 
   screenshotBtn.disabled = false;
 });
+
+// Dashboard button
+if (dashboardBtn) {
+  dashboardBtn.addEventListener('click', () => {
+    chrome.tabs.create({ url: 'src/main.html' });
+  });
+}

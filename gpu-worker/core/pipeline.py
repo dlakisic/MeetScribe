@@ -62,7 +62,7 @@ class MeetingPipeline:
 
     def process(
         self,
-        mic_path: Path,
+        mic_path: Path | None,
         tab_path: Path,
         metadata: dict,
         output_path: Path,
@@ -70,8 +70,12 @@ class MeetingPipeline:
         local_speaker = metadata.get("local_speaker", "Dino")
         remote_speaker = metadata.get("remote_speaker", "Interlocuteur")
 
-        log.info(f"Transcribing microphone track as '{local_speaker}'")
-        mic_segments = self.transcriber.transcribe_file(mic_path, local_speaker)
+        mic_segments = []
+        if mic_path and mic_path.exists():
+            log.info(f"Transcribing microphone track as '{local_speaker}'")
+            mic_segments = self.transcriber.transcribe_file(mic_path, local_speaker)
+        else:
+            log.info("No microphone track provided, skipping local speaker transcription")
 
         log.info(f"Transcribing tab audio track as '{remote_speaker}'")
         tab_segments = self.transcriber.transcribe_file(tab_path, remote_speaker)

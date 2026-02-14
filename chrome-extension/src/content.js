@@ -7,11 +7,9 @@
 const SELECTORS = {
   'meet.google.com': {
     // Participant names in video tiles
-    participantNames: '[data-participant-id] [data-self-name]',
+    participantNames: '[data-self-name]',
     // Names in the participant list panel
     participantList: '[role="listitem"] [data-participant-id]',
-    // Alternative: names shown on video tiles
-    videoTileNames: '.dwSJ2e', // Google Meet name labels
     // Meeting title from the page
     meetingTitle: '[data-meeting-title]',
     // Self name
@@ -68,15 +66,7 @@ function extractGoogleMeetParticipants() {
     }
   });
 
-  // Method 3: CSS class based (fallback)
-  document.querySelectorAll('.dwSJ2e, .ZjFb7c, .cS7aqe').forEach((el) => {
-    const name = el.textContent?.trim();
-    if (name && name.length > 1 && !name.includes('Vous') && !name.includes('You')) {
-      participants.add(name);
-    }
-  });
-
-  // Method 4: aria-label on video containers
+  // Method 3: aria-label on video containers (e.g., "Name's camera")
   document.querySelectorAll('[aria-label*="camera"]').forEach((el) => {
     const label = el.getAttribute('aria-label');
     if (label) {

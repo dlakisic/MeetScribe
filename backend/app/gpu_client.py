@@ -45,7 +45,7 @@ class GPUClient:
 
     async def transcribe(
         self,
-        mic_path: Path,
+        mic_path: Path | None,
         tab_path: Path,
         metadata: dict,
     ) -> TranscriptionResult:
@@ -54,9 +54,11 @@ class GPUClient:
             async with httpx.AsyncClient(timeout=self.gpu.timeout) as client:
                 # Prepare multipart form data
                 files = {
-                    "mic_file": (mic_path.name, open(mic_path, "rb"), "audio/webm"),
                     "tab_file": (tab_path.name, open(tab_path, "rb"), "audio/webm"),
                 }
+                if mic_path:
+                    files["mic_file"] = (mic_path.name, open(mic_path, "rb"), "audio/webm")
+
                 data = {
                     "metadata": json.dumps(metadata),
                 }
@@ -105,7 +107,7 @@ class FallbackTranscriber:
 
     async def transcribe(
         self,
-        mic_path: Path,
+        mic_path: Path | None,
         tab_path: Path,
         metadata: dict,
     ) -> TranscriptionResult:
@@ -118,7 +120,7 @@ class FallbackTranscriber:
         try:
             from transcribe import process_meeting
 
-            output_path = mic_path.parent / "output.json"
+            output_path = tab_path.parent / "output.json"
 
             # Run in thread pool to not block
             loop = asyncio.get_event_loop()
@@ -198,7 +200,7 @@ class TranscriptionService:
 
     async def transcribe(
         self,
-        mic_path: Path,
+        mic_path: Path | None,
         tab_path: Path,
         metadata: dict,
         job_id: str,
