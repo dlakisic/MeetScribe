@@ -17,8 +17,10 @@ services:
       - MEETSCRIBE_PLUG_DEVICE_ID=${PLUG_DEVICE_ID}
       - MEETSCRIBE_PLUG_IP=${PLUG_IP}
       - MEETSCRIBE_PLUG_LOCAL_KEY=${PLUG_LOCAL_KEY}
+    command: ["uv", "run", "uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     volumes:
       - meetscribe_data:/data
+      - ../../backend:/app/backend:ro
 
 volumes:
   meetscribe_data:
