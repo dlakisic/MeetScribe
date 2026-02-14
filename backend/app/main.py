@@ -10,12 +10,15 @@ from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException
 
 from .config import Config, load_config
 from .core.auth import security, verify_token
+from .core.logging import get_logger
 from .database import Database
 from .gpu_client import TranscriptionService
 from .repositories.meeting_repository import MeetingRepository
 from .services.extraction_service import ExtractionService
 from .services.job_store import JobStore
 from .services.meeting_service import MeetingService
+
+log = get_logger("api")
 
 # Global instances
 config: Config
@@ -41,10 +44,10 @@ async def lifespan(app: FastAPI):
 
     meeting_service = MeetingService(repo, transcriber, job_store, extraction_service)
 
-    print("MeetScribe Backend started")
-    print(f"  Data dir: {config.data_dir}")
-    print(f"  GPU worker: {config.gpu.ssh_user}@{config.gpu.host}")
-    print(f"  Fallback enabled: {config.fallback.enabled}")
+    log.info("Backend started")
+    log.info(f"Data dir: {config.data_dir}")
+    log.info(f"GPU worker: {config.gpu.ssh_user}@{config.gpu.host}")
+    log.info(f"Fallback enabled: {config.fallback.enabled}")
 
     yield
 

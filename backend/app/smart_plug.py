@@ -7,6 +7,9 @@ import asyncio
 import tinytuya
 
 from .config import SmartPlugConfig
+from .core.logging import get_logger
+
+log = get_logger("smart_plug")
 
 
 class SmartPlug:
@@ -40,7 +43,7 @@ class SmartPlug:
     async def turn_on(self) -> bool:
         """Turn on the smart plug."""
         if not self.is_configured():
-            print("[SmartPlug] Not configured, skipping turn_on")
+            log.debug("Not configured, skipping turn_on")
             return False
 
         def _turn_on():
@@ -51,10 +54,10 @@ class SmartPlug:
         try:
             loop = asyncio.get_event_loop()
             result = await loop.run_in_executor(None, _turn_on)
-            print(f"[SmartPlug] Turn ON result: {result}")
+            log.info(f"Turn ON result: {result}")
             return True
         except Exception as e:
-            print(f"[SmartPlug] Turn ON failed: {e}")
+            log.error(f"Turn ON failed: {e}")
             return False
 
     async def turn_off(self) -> bool:
@@ -70,10 +73,10 @@ class SmartPlug:
         try:
             loop = asyncio.get_event_loop()
             result = await loop.run_in_executor(None, _turn_off)
-            print(f"[SmartPlug] Turn OFF result: {result}")
+            log.info(f"Turn OFF result: {result}")
             return True
         except Exception as e:
-            print(f"[SmartPlug] Turn OFF failed: {e}")
+            log.error(f"Turn OFF failed: {e}")
             return False
 
     async def get_status(self) -> dict | None:
@@ -90,7 +93,7 @@ class SmartPlug:
             result = await loop.run_in_executor(None, _status)
             return result
         except Exception as e:
-            print(f"[SmartPlug] Status failed: {e}")
+            log.error(f"Status failed: {e}")
             return None
 
     async def is_on(self) -> bool | None:

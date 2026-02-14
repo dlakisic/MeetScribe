@@ -2,7 +2,10 @@ import json
 from pathlib import Path
 
 from .domain import TranscriptSegment
+from .logging import get_logger
 from .transcriber import WhisperTranscriber
+
+log = get_logger("pipeline")
 
 
 def merge_transcripts(
@@ -67,10 +70,10 @@ class MeetingPipeline:
         local_speaker = metadata.get("local_speaker", "Dino")
         remote_speaker = metadata.get("remote_speaker", "Interlocuteur")
 
-        print(f"Transcribing microphone track as '{local_speaker}'...")
+        log.info(f"Transcribing microphone track as '{local_speaker}'")
         mic_segments = self.transcriber.transcribe_file(mic_path, local_speaker)
 
-        print(f"Transcribing tab audio track as '{remote_speaker}'...")
+        log.info(f"Transcribing tab audio track as '{remote_speaker}'")
         tab_segments = self.transcriber.transcribe_file(tab_path, remote_speaker)
 
         mic_offset = metadata.get("mic_start_offset", 0.0)
@@ -82,7 +85,7 @@ class MeetingPipeline:
             mic_offset=mic_offset,
             tab_offset=tab_offset,
         )
-        print(f"Merged transcript: {len(merged)} total segments")
+        log.info(f"Merged transcript: {len(merged)} segments")
 
         result = {
             "meeting": {
@@ -107,5 +110,5 @@ class MeetingPipeline:
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(result, f, ensure_ascii=False, indent=2)
 
-        print(f"Transcript saved to {output_path}")
+        log.info(f"Transcript saved to {output_path}")
         return result

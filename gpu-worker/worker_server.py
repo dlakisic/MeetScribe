@@ -9,9 +9,12 @@ import tempfile
 from pathlib import Path
 
 import uvicorn
+from core.logging import get_logger
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from transcribe import Transcriber, process_meeting
+
+log = get_logger("server")
 
 app = FastAPI(title="MeetScribe GPU Worker", version="0.1.0")
 
@@ -26,9 +29,9 @@ def get_transcriber() -> Transcriber:
     """Get or create the transcriber instance."""
     global _transcriber
     if _transcriber is None:
-        print(f"Loading Whisper model '{_model_size}' on {_device}...")
+        log.info(f"Loading Whisper model '{_model_size}' on {_device}")
         _transcriber = Transcriber(model_size=_model_size, device=_device)
-        print("Model loaded.")
+        log.info("Model loaded")
     return _transcriber
 
 
@@ -70,10 +73,10 @@ async def transcribe(
         raise HTTPException(status_code=500, detail="Server not initialized")
 
     if _lock.locked():
-        print("Worker is busy, queueing request...")
+        log.info("Worker is busy, queueing request")
 
     async with _lock:
-        print("Acquired lock found, starting transcription...")
+        log.info("Acquired lock, starting transcription")
         try:
             meta = json.loads(metadata)
         except json.JSONDecodeError:
@@ -114,7 +117,7 @@ async def transcribe(
             return JSONResponse(content=result)
 
         except Exception as e:
-            print(f"Transcription failed: {e}")
+            log.error(f"Transcription failed: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
         finally:
@@ -139,8 +142,8 @@ def main():
     _model_size = args.model
     _device = args.device
 
-    print(f"Starting GPU Worker on {args.host}:{args.port}")
-    print(f"Model: {_model_size}, Device: {_device}")
+    log.info(f"Starting GPU Worker on {args.host}:{args.port}")
+    log.info(f"Model: {_model_size}, Device: {_device}")
 
     uvicorn.run(app, host=args.host, port=args.port)
 
