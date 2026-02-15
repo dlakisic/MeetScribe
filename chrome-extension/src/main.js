@@ -215,6 +215,19 @@ async function fetchMeetingDetails(id) {
     }
 }
 
+async function saveSegmentText(segmentId, newText) {
+    try {
+        const res = await authFetch(`${API_URL}/api/segments/${segmentId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: newText }),
+        });
+        if (!res.ok) console.error('Failed to save segment', res.status);
+    } catch (err) {
+        console.error('Error saving segment:', err);
+    }
+}
+
 // --- Rendering ---
 async function loadMeetings() {
     meetingList.innerHTML = '<div class="empty-state" style="height: 50px;">Chargement...</div>';
@@ -307,8 +320,36 @@ function renderTranscript(transcriptData) {
             }
         });
 
+        // Rename speaker on click
+        const speakerEl = el.querySelector('.segment-speaker');
+        speakerEl.style.cursor = 'pointer';
+        speakerEl.title = 'Click to rename speaker globally';
+
+        speakerEl.addEventListener('click', async () => {
+            const newName = prompt(`Rename "${seg.speaker}" to:`, seg.speaker);
+            if (newName && newName !== seg.speaker) {
+                const meetingId = meetingList.querySelector('.meeting-item.active').dataset.id;
+                await saveSpeakerRename(meetingId, seg.speaker, newName);
+                // Reload meeting to update all occurrences
+                selectMeeting(meetingId, meetingList.querySelector('.meeting-item.active'));
+            }
+        });
+
         transcriptContainer.appendChild(el);
     });
+}
+
+async function saveSpeakerRename(meetingId, oldName, newName) {
+    try {
+        const res = await authFetch(`${API_URL}/api/meetings/${meetingId}/speakers`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ old_name: oldName, new_name: newName }),
+        });
+        if (!res.ok) console.error('Failed to rename speaker', res.status);
+    } catch (err) {
+        console.error('Error renaming speaker:', err);
+    }
 }
 
 function renderInsights(structuredDataStr) {

@@ -8,6 +8,7 @@ from datetime import datetime
 
 from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from .config import Config, load_config
 from .core.auth import security, verify_token
@@ -183,6 +184,31 @@ async def get_transcript(meeting_id: int):
     if not result:
         raise HTTPException(status_code=404, detail="Meeting not found")
     return result
+
+
+class SegmentUpdate(BaseModel):
+    text: str
+
+
+@app.patch("/api/segments/{segment_id}", dependencies=[Depends(require_auth)])
+async def update_segment(segment_id: int, body: SegmentUpdate):
+    """Update a segment's text."""
+    updated = await meeting_service.update_segment_text(segment_id, body.text)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Segment not found")
+    return {"ok": True}
+
+
+class SpeakerUpdate(BaseModel):
+    old_name: str
+    new_name: str
+
+
+@app.patch("/api/meetings/{meeting_id}/speakers", dependencies=[Depends(require_auth)])
+async def update_speaker(meeting_id: int, body: SpeakerUpdate):
+    """Rename a speaker globally for a meeting."""
+    count = await meeting_service.update_speaker(meeting_id, body.old_name, body.new_name)
+    return {"updated_count": count}
 
 
 # Simple CLI to run the server

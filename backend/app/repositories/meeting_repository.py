@@ -139,6 +139,34 @@ class MeetingRepository:
             # Convert to dicts
             return [m.model_dump() for m in meetings]
 
+    async def update_segment_text(self, segment_id: int, text: str) -> bool:
+        """Update a segment's text."""
+        async with self.db.session() as session:
+            segment = await session.get(Segment, segment_id)
+            if not segment:
+                return False
+            segment.text = text
+            session.add(segment)
+            await session.commit()
+            return True
+
+    async def update_speaker(self, meeting_id: int, old_name: str, new_name: str) -> int:
+        """Update all occurrences of a speaker name in a meeting."""
+        # We need to use exec with update statement
+        from sqlmodel import update
+
+        statement = (
+            update(Segment)
+            .where(Segment.meeting_id == meeting_id)
+            .where(Segment.speaker == old_name)
+            .values(speaker=new_name)
+        )
+
+        async with self.db.session() as session:
+            result = await session.exec(statement)
+            await session.commit()
+            return result.rowcount
+
     async def save_extracted_data(self, meeting_id: int, data: dict):
         """Save extracted data for a meeting."""
         async with self.db.session() as session:
