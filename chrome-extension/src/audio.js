@@ -1,5 +1,5 @@
 import { fetchAudioBlob } from './api.js';
-import { API_URL } from './config.js';
+import { getApiUrl } from './config.js';
 
 let audio = null;
 let playBtn = null;
@@ -69,7 +69,7 @@ export function loadAudioForMeeting(meetingId, hasAudio) {
     }
 
     // Build audio URL with auth
-    const audioUrl = `${API_URL}/api/meetings/${meetingId}/audio`;
+    const audioUrl = `${getApiUrl()}/api/meetings/${meetingId}/audio`;
     audio.src = audioUrl; // Default src
     playBtn.innerHTML = '&#9654;';
     playerBar.style.display = 'flex';

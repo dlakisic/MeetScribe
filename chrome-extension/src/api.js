@@ -1,9 +1,10 @@
-import { API_URL, API_TOKEN } from './config.js';
+import { getApiUrl, getApiToken } from './config.js';
 
 // --- Authenticated Fetch ---
 async function authFetch(url, options = {}) {
     const headers = options.headers || {};
-    if (API_TOKEN) headers['Authorization'] = `Bearer ${API_TOKEN}`;
+    const token = getApiToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
     options.headers = headers;
     return fetch(url, options);
 }
@@ -12,7 +13,7 @@ async function authFetch(url, options = {}) {
 
 export async function fetchMeetings({ limit = 50, offset = 0 } = {}) {
     try {
-        const res = await authFetch(`${API_URL}/api/transcripts?limit=${limit}&offset=${offset}`, { method: "GET" });
+        const res = await authFetch(`${getApiUrl()}/api/transcripts?limit=${limit}&offset=${offset}`, { method: "GET" });
         if (res.status === 401) return { meetings: [], unauthorized: true };
         if (!res.ok) throw new Error("Failed to fetch meetings");
         return await res.json();
@@ -24,7 +25,7 @@ export async function fetchMeetings({ limit = 50, offset = 0 } = {}) {
 
 export async function fetchMeetingDetails(id) {
     try {
-        const res = await authFetch(`${API_URL}/api/transcripts/${id}`);
+        const res = await authFetch(`${getApiUrl()}/api/transcripts/${id}`);
         if (res.status === 401) throw new Error("Unauthorized");
         if (!res.ok) throw new Error("Failed to fetch details");
         return await res.json();
@@ -36,7 +37,7 @@ export async function fetchMeetingDetails(id) {
 
 export async function saveSegmentText(segmentId, newText) {
     try {
-        const res = await authFetch(`${API_URL}/api/segments/${segmentId}`, {
+        const res = await authFetch(`${getApiUrl()}/api/segments/${segmentId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text: newText }),
@@ -51,7 +52,7 @@ export async function saveSegmentText(segmentId, newText) {
 
 export async function saveSpeakerRename(meetingId, oldName, newName) {
     try {
-        const res = await authFetch(`${API_URL}/api/meetings/${meetingId}/speakers`, {
+        const res = await authFetch(`${getApiUrl()}/api/meetings/${meetingId}/speakers`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ old_name: oldName, new_name: newName }),
@@ -66,7 +67,7 @@ export async function saveSpeakerRename(meetingId, oldName, newName) {
 
 export async function saveMeetingTitle(meetingId, title) {
     try {
-        const res = await authFetch(`${API_URL}/api/meetings/${meetingId}`, {
+        const res = await authFetch(`${getApiUrl()}/api/meetings/${meetingId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title }),
@@ -81,7 +82,7 @@ export async function saveMeetingTitle(meetingId, title) {
 
 export async function deleteMeeting(meetingId) {
     try {
-        const res = await authFetch(`${API_URL}/api/meetings/${meetingId}`, { method: 'DELETE' });
+        const res = await authFetch(`${getApiUrl()}/api/meetings/${meetingId}`, { method: 'DELETE' });
         return res.ok;
     } catch (err) {
         console.error('Error deleting meeting:', err);
@@ -91,9 +92,10 @@ export async function deleteMeeting(meetingId) {
 
 export async function uploadMeetingAudio(formData) {
     const headers = {};
-    if (API_TOKEN) headers['Authorization'] = `Bearer ${API_TOKEN}`;
+    const uploadToken = getApiToken();
+    if (uploadToken) headers['Authorization'] = `Bearer ${uploadToken}`;
 
-    const res = await fetch(`${API_URL}/api/upload`, {
+    const res = await fetch(`${getApiUrl()}/api/upload`, {
         method: 'POST',
         headers: headers,
         body: formData
@@ -105,7 +107,7 @@ export async function uploadMeetingAudio(formData) {
 }
 
 export async function fetchJobStatus(jobId) {
-    const res = await authFetch(`${API_URL}/api/status/${jobId}`);
+    const res = await authFetch(`${getApiUrl()}/api/status/${jobId}`);
     if (!res.ok) throw new Error('Failed to fetch job status');
     return await res.json();
 }

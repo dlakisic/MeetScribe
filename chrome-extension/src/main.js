@@ -4,11 +4,13 @@ import * as Config from './config.js';
 import * as UI from './ui.js';
 
 // --- State ---
-let selectedMeetingId = null;
-let currentTranscriptData = null;
-let currentMeetingData = null;
-let allMeetings = [];
-let pollTimers = new Map();
+const state = {
+    selectedMeetingId: null,
+    transcriptData: null,
+    meetingData: null,
+    meetings: [],
+    pollTimers: new Map(),
+};
 
 // --- Elements ---
 const uploadBtn = document.getElementById('upload-btn');
@@ -69,27 +71,27 @@ async function loadMeetings() {
     meetingList.innerHTML = '<div class="empty-state" style="height: 50px;">Chargement...</div>';
 
     const data = await API.fetchMeetings();
-    allMeetings = data.meetings || [];
-    UI.renderMeetingList(allMeetings, selectedMeetingId, selectMeeting);
+    state.meetings = data.meetings || [];
+    UI.renderMeetingList(state.meetings, state.selectedMeetingId, selectMeeting);
 }
 
 function filterMeetings(query) {
     const q = query.toLowerCase().trim();
     if (!q) {
-        UI.renderMeetingList(allMeetings, selectedMeetingId, selectMeeting);
+        UI.renderMeetingList(state.meetings, state.selectedMeetingId, selectMeeting);
         return;
     }
-    const filtered = allMeetings.filter(m =>
+    const filtered = state.meetings.filter(m =>
         m.title.toLowerCase().includes(q) ||
         (m.platform || '').toLowerCase().includes(q)
     );
-    UI.renderMeetingList(filtered, selectedMeetingId, selectMeeting);
+    UI.renderMeetingList(filtered, state.selectedMeetingId, selectMeeting);
 }
 
 async function selectMeeting(id, element) {
     Audio.stopAudio(); // Stop previous audio
 
-    selectedMeetingId = id;
+    state.selectedMeetingId = id;
     // Update active class in list
     document.querySelectorAll('.meeting-item').forEach(el => el.classList.remove('active'));
     if (element) element.classList.add('active');
@@ -101,8 +103,8 @@ async function selectMeeting(id, element) {
     if (!data) return;
 
     const { meeting, transcript } = data;
-    currentMeetingData = meeting;
-    currentTranscriptData = transcript;
+    state.meetingData = meeting;
+    state.transcriptData = transcript;
 
     // Editable title
     currentTitle.textContent = meeting.title;
@@ -142,10 +144,10 @@ async function handleSegmentTextChange(segId, newText, seg) {
 async function handleSpeakerRename(speakerName) {
     const newName = prompt(`Renommer "${speakerName}" en :`, speakerName);
     if (newName && newName !== speakerName) {
-        await API.saveSpeakerRename(selectedMeetingId, speakerName, newName);
+        await API.saveSpeakerRename(state.selectedMeetingId, speakerName, newName);
         // Refresh to update all segments
-        const activeEl = document.querySelector(`.meeting-item[data-id="${selectedMeetingId}"]`);
-        selectMeeting(selectedMeetingId, activeEl);
+        const activeEl = document.querySelector(`.meeting-item[data-id="${state.selectedMeetingId}"]`);
+        selectMeeting(state.selectedMeetingId, activeEl);
     }
 }
 
@@ -196,7 +198,7 @@ function startStatusPolling(jobId, meetingId) {
 
             if (job.status === 'completed') {
                 clearInterval(timer);
-                pollTimers.delete(jobId);
+                state.pollTimers.delete(jobId);
                 uploadBtn.textContent = 'Importer un fichier';
                 uploadBtn.disabled = false;
                 await loadMeetings();
@@ -205,7 +207,7 @@ function startStatusPolling(jobId, meetingId) {
                 if (el) selectMeeting(meetingId, el);
             } else if (job.status === 'failed') {
                 clearInterval(timer);
-                pollTimers.delete(jobId);
+                state.pollTimers.delete(jobId);
                 uploadBtn.textContent = 'Importer un fichier';
                 uploadBtn.disabled = false;
                 await loadMeetings();
@@ -216,18 +218,18 @@ function startStatusPolling(jobId, meetingId) {
         }
     }, 5000);
 
-    pollTimers.set(jobId, timer);
+    state.pollTimers.set(jobId, timer);
 }
 
 async function handleDeleteMeeting() {
-    if (!selectedMeetingId) return;
+    if (!state.selectedMeetingId) return;
     if (!confirm('Supprimer cette réunion ? Cette action est irréversible.')) return;
 
-    if (await API.deleteMeeting(selectedMeetingId)) {
+    if (await API.deleteMeeting(state.selectedMeetingId)) {
         Audio.stopAudio();
-        selectedMeetingId = null;
-        currentTranscriptData = null;
-        currentMeetingData = null;
+        state.selectedMeetingId = null;
+        state.transcriptData = null;
+        state.meetingData = null;
         currentTitle.contentEditable = 'false';
         document.getElementById('details-view').style.display = 'none';
         document.getElementById('main-empty').style.display = 'flex';
@@ -239,13 +241,13 @@ async function handleDeleteMeeting() {
 
 function setupTitleEditing() {
     currentTitle.addEventListener('blur', async () => {
-        if (!selectedMeetingId) return;
+        if (!state.selectedMeetingId) return;
         const newTitle = currentTitle.textContent.trim();
-        if (newTitle && newTitle !== currentMeetingData?.title) {
-            await API.saveMeetingTitle(selectedMeetingId, newTitle);
-            currentMeetingData.title = newTitle;
+        if (newTitle && newTitle !== state.meetingData?.title) {
+            await API.saveMeetingTitle(state.selectedMeetingId, newTitle);
+            state.meetingData.title = newTitle;
             // Update sidebar
-            const sidebarItem = document.querySelector(`.meeting-item[data-id="${selectedMeetingId}"] .meeting-title`);
+            const sidebarItem = document.querySelector(`.meeting-item[data-id="${state.selectedMeetingId}"] .meeting-title`);
             if (sidebarItem) sidebarItem.textContent = newTitle;
         }
     });
@@ -263,8 +265,8 @@ function setupSettingsHandlers() {
 
     settingsBtn.addEventListener('click', () => {
         settingsModal.style.display = 'flex';
-        apiUrlInput.value = Config.API_URL;
-        apiTokenInput.value = Config.API_TOKEN;
+        apiUrlInput.value = Config.getApiUrl();
+        apiTokenInput.value = Config.getApiToken();
     });
 
     closeSettings.addEventListener('click', () => {
@@ -299,11 +301,11 @@ function switchTab(tabName) {
 // --- Utils ---
 
 function getFormattedText() {
-    if (!currentTranscriptData || !currentTranscriptData.segments) return '';
+    if (!state.transcriptData || !state.transcriptData.segments) return '';
 
-    const segments = typeof currentTranscriptData.segments === 'string'
-        ? JSON.parse(currentTranscriptData.segments)
-        : currentTranscriptData.segments;
+    const segments = typeof state.transcriptData.segments === 'string'
+        ? JSON.parse(state.transcriptData.segments)
+        : state.transcriptData.segments;
 
     const lines = segments.map(seg => {
         const t = seg.start_time ?? seg.start ?? 0;
@@ -314,13 +316,13 @@ function getFormattedText() {
 
     let text = lines.join('\n');
 
-    if (currentMeetingData?.extracted_data?.summary?.abstract) {
-        text += '\n\n--- Résumé ---\n' + currentMeetingData.extracted_data.summary.abstract;
+    if (state.meetingData?.extracted_data?.summary?.abstract) {
+        text += '\n\n--- Résumé ---\n' + state.meetingData.extracted_data.summary.abstract;
     }
 
-    if (currentMeetingData?.extracted_data?.action_items?.length > 0) {
+    if (state.meetingData?.extracted_data?.action_items?.length > 0) {
         text += '\n\n--- Actions ---\n';
-        currentMeetingData.extracted_data.action_items.forEach(a => {
+        state.meetingData.extracted_data.action_items.forEach(a => {
             text += `- ${a.owner || '?'}: ${a.description}\n`;
         });
     }
@@ -339,7 +341,7 @@ function copyTranscript() {
 
 function exportTranscript() {
     const text = getFormattedText();
-    const title = currentMeetingData?.title || 'transcript';
+    const title = state.meetingData?.title || 'transcript';
     const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
