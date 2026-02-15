@@ -21,8 +21,10 @@ class Meeting(MeetingBase, table=True):
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
 
-    transcript: "Transcript" = Relationship(back_populates="meeting", sa_relationship_kwargs={"uselist": False})
-    segments: list["Segment"] = Relationship(back_populates="meeting")
+    transcript: Transcript = Relationship(
+        back_populates="meeting", sa_relationship_kwargs={"uselist": False}
+    )
+    segments: list[Segment] = Relationship(back_populates="meeting")
 
     extracted_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
 

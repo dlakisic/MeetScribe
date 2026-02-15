@@ -76,7 +76,9 @@ class MeetingRepository:
                 transcript = results.first()
 
                 if not transcript:
-                    transcript = Transcript(meeting_id=meeting_id, full_text="", formatted="", stats={})
+                    transcript = Transcript(
+                        meeting_id=meeting_id, full_text="", formatted="", stats={}
+                    )
 
                 # Update transcript fields
                 transcript.full_text = " ".join(seg["text"] for seg in segments)
