@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
@@ -20,8 +20,8 @@ class Meeting(MeetingBase, table=True):
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
 
-    transcript: Optional["Transcript"] = Relationship(back_populates="meeting")
-    segments: list["Segment"] = Relationship(back_populates="meeting")
+    transcript: Transcript | None = Relationship(back_populates="meeting")
+    segments: list[Segment] = Relationship(back_populates="meeting")
 
     extracted_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
 
@@ -37,7 +37,7 @@ class Transcript(SQLModel, table=True):
     stats: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=datetime.now)
 
-    meeting: Optional["Meeting"] = Relationship(back_populates="transcript")
+    meeting: Meeting | None = Relationship(back_populates="transcript")
 
 
 class Segment(SQLModel, table=True):
@@ -51,4 +51,4 @@ class Segment(SQLModel, table=True):
     end_time: float
     confidence: float | None = None
 
-    meeting: Optional["Meeting"] = Relationship(back_populates="segments")
+    meeting: Meeting | None = Relationship(back_populates="segments")

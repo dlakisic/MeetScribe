@@ -264,7 +264,7 @@ async function selectMeeting(id, element) {
     currentDuration.textContent = meeting.duration ? Math.round(meeting.duration / 60) + ' min' : '--';
 
     renderTranscript(transcript);
-    renderInsights(transcript.structured_data);
+    renderInsights(meeting.extracted_data);
 }
 
 function renderTranscript(transcriptData) {
@@ -283,8 +283,9 @@ function renderTranscript(transcriptData) {
         const el = document.createElement('div');
         el.className = 'transcript-segment';
 
-        const minutes = Math.floor(seg.start / 60);
-        const seconds = Math.floor(seg.start % 60).toString().padStart(2, '0');
+        const startTime = seg.start_time ?? seg.start ?? 0;
+        const minutes = Math.floor(startTime / 60);
+        const seconds = Math.floor(startTime % 60).toString().padStart(2, '0');
 
         const isLocal = seg.speaker === 'Me' || seg.speaker === 'Moi';
 
@@ -292,9 +293,20 @@ function renderTranscript(transcriptData) {
       <div class="segment-time">${minutes}:${seconds}</div>
       <div class="segment-content">
         <div class="segment-speaker ${isLocal ? 'local' : ''}">${seg.speaker}</div>
-        <div class="segment-text">${seg.text}</div>
+        <div class="segment-text" contenteditable="true" data-segment-id="${seg.id}">${seg.text}</div>
       </div>
     `;
+
+        // Save on blur
+        const textEl = el.querySelector('.segment-text');
+        textEl.addEventListener('blur', () => {
+            const newText = textEl.textContent.trim();
+            if (newText !== seg.text && seg.id) {
+                saveSegmentText(seg.id, newText);
+                seg.text = newText;
+            }
+        });
+
         transcriptContainer.appendChild(el);
     });
 }

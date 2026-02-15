@@ -8,6 +8,7 @@ dependencies = [
     "aiosqlite>=0.22.1",
     "fastapi>=0.128.8",
     "faster-whisper>=1.2.1",
+    "pyannote-audio>=3.3.0",
     "httpx>=0.28.1",
     "instructor>=1.14.5",
     "numpy>=2.4.2",

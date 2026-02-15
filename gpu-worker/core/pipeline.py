@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 
 from .domain import TranscriptSegment
@@ -59,6 +60,35 @@ class MeetingPipeline:
         self.transcriber = WhisperTranscriber(model_size, device)
         self.model_size = model_size
         self.device = device
+        self._diarizer = None
+
+    def _get_diarizer(self):
+        """Lazy-load the speaker diarizer (only when needed)."""
+        if self._diarizer is None:
+            from .diarizer import SpeakerDiarizer
+
+            self._diarizer = SpeakerDiarizer(device=self.device)
+        return self._diarizer
+
+    def _diarize_segments(self, audio_path: Path, segments: list[TranscriptSegment]) -> None:
+        """Run speaker diarization on segments if HF_TOKEN is available."""
+        if not os.environ.get("HF_TOKEN"):
+            log.info("HF_TOKEN not set, skipping speaker diarization")
+            return
+
+        if not segments:
+            return
+
+        try:
+            from .diarizer import assign_speakers
+
+            diarizer = self._get_diarizer()
+            turns = diarizer.diarize(audio_path)
+            assign_speakers(segments, turns)
+            speakers = set(s.speaker for s in segments)
+            log.info(f"Diarization applied: {len(speakers)} speakers identified")
+        except Exception as e:
+            log.warning(f"Diarization failed, keeping default labels: {e}")
 
     def process(
         self,
@@ -70,15 +100,28 @@ class MeetingPipeline:
         local_speaker = metadata.get("local_speaker", "Dino")
         remote_speaker = metadata.get("remote_speaker", "Interlocuteur")
 
+        has_mic = mic_path and mic_path.exists()
+        has_tab = tab_path and tab_path.exists()
+
+        # Transcribe mic track (always tagged as local speaker)
         mic_segments = []
-        if mic_path and mic_path.exists():
+        if has_mic:
             log.info(f"Transcribing microphone track as '{local_speaker}'")
             mic_segments = self.transcriber.transcribe_file(mic_path, local_speaker)
 
+        # Transcribe tab track
         tab_segments = []
-        if tab_path and tab_path.exists():
+        if has_tab:
             log.info(f"Transcribing tab audio track as '{remote_speaker}'")
             tab_segments = self.transcriber.transcribe_file(tab_path, remote_speaker)
+
+        # Speaker diarization
+        if has_tab:
+            # Tab always gets diarization (multiple remote speakers possible)
+            self._diarize_segments(tab_path, tab_segments)
+        elif has_mic and not has_tab:
+            # Mic-only: diarize to distinguish speakers
+            self._diarize_segments(mic_path, mic_segments)
 
         mic_offset = metadata.get("mic_start_offset", 0.0)
         tab_offset = metadata.get("tab_start_offset", 0.0)

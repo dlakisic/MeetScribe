@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -21,12 +21,13 @@ async def test_extraction_service_logic():
 
     # Mock the client
     mock_client = MagicMock()
-    mock_client.chat.completions.create.return_value = mock_data
+    mock_client.chat.completions.create = AsyncMock(return_value=mock_data)
 
     # Patch the factory to return our mock client
     with (
         patch("backend.app.core.llm.LLMFactory.get_client", return_value=mock_client),
         patch("backend.app.core.llm.LLMFactory.get_model_name", return_value="gpt-mock"),
+        patch("backend.app.core.llm.LLMFactory.is_configured", return_value=True),
     ):
         service = ExtractionService()
 

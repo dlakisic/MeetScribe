@@ -214,7 +214,9 @@ class TranscriptionService:
             gpu_available = await self._try_wake_gpu(job_id)
 
         if gpu_available:
-            log.info(f"[{job_id}] Using GPU worker at {self.config.gpu.host}:{self.config.gpu.worker_port}")
+            log.info(
+                f"[{job_id}] Using GPU worker at {self.config.gpu.host}:{self.config.gpu.worker_port}"
+            )
             result = await self.gpu_client.transcribe(mic_path, tab_path, metadata)
             if result.success:
                 return result

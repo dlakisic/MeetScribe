@@ -14,14 +14,18 @@ class ExtractionService:
         """
         if not transcript_text or len(transcript_text) < 50:
             return ExtractedData(
-                summary=MeetingSummary(abstract="Transcript too short.", topics=[], sentiment="neutral"),
+                summary=MeetingSummary(
+                    abstract="Transcript too short.", topics=[], sentiment="neutral"
+                ),
                 action_items=[],
                 decisions=[],
             )
 
         if not LLMFactory.is_configured():
             return ExtractedData(
-                summary=MeetingSummary(abstract="LLM not configured (skipped).", topics=[], sentiment="neutral"),
+                summary=MeetingSummary(
+                    abstract="LLM not configured (skipped).", topics=[], sentiment="neutral"
+                ),
                 action_items=[],
                 decisions=[],
             )
@@ -32,7 +36,7 @@ class ExtractionService:
             messages=[
                 {
                     "role": "system",
-                    "content": "You are an expert AI meeting assistant. Analyze the following transcript and extract structured data.",
+                    "content": "You are an expert AI meeting assistant. Analyze the following transcript and extract structured data. Always respond in the language of the transcript.",
                 },
                 {"role": "user", "content": transcript_text},
             ],
