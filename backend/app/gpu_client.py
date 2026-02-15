@@ -51,26 +51,25 @@ class GPUClient:
     ) -> TranscriptionResult:
         """Send files to GPU worker and get transcription result."""
         try:
+            from contextlib import ExitStack
+
             async with httpx.AsyncClient(timeout=self.gpu.timeout) as client:
-                # Prepare multipart form data
-                files = {}
-                if mic_path:
-                    files["mic_file"] = (mic_path.name, open(mic_path, "rb"), "audio/webm")
-                if tab_path:
-                    files["tab_file"] = (tab_path.name, open(tab_path, "rb"), "audio/webm")
-                data = {
-                    "metadata": json.dumps(metadata),
-                }
+                with ExitStack() as stack:
+                    files = {}
+                    if mic_path:
+                        f = stack.enter_context(open(mic_path, "rb"))
+                        files["mic_file"] = (mic_path.name, f, "audio/webm")
+                    if tab_path:
+                        f = stack.enter_context(open(tab_path, "rb"))
+                        files["tab_file"] = (tab_path.name, f, "audio/webm")
 
-                response = await client.post(
-                    f"{self.base_url}/transcribe",
-                    files=files,
-                    data=data,
-                )
+                    data = {"metadata": json.dumps(metadata)}
 
-                # Close file handles
-                for _, (_, f, _) in files.items():
-                    f.close()
+                    response = await client.post(
+                        f"{self.base_url}/transcribe",
+                        files=files,
+                        data=data,
+                    )
 
                 if response.status_code == 200:
                     result = response.json()

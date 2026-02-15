@@ -69,46 +69,45 @@ class MeetingRepository:
     ):
         """Save transcript and segments for a meeting."""
         async with self.db.session() as session:
-            # Check if transcript exists
-            statement = select(Transcript).where(Transcript.meeting_id == meeting_id)
-            results = await session.exec(statement)
-            transcript = results.first()
+            async with session.begin():
+                # Check if transcript exists
+                statement = select(Transcript).where(Transcript.meeting_id == meeting_id)
+                results = await session.exec(statement)
+                transcript = results.first()
 
-            if not transcript:
-                transcript = Transcript(meeting_id=meeting_id, full_text="", formatted="", stats={})
+                if not transcript:
+                    transcript = Transcript(meeting_id=meeting_id, full_text="", formatted="", stats={})
 
-            # Update transcript fields
-            transcript.full_text = " ".join(seg["text"] for seg in segments)
-            transcript.formatted = formatted
-            transcript.stats = stats
-            session.add(transcript)
+                # Update transcript fields
+                transcript.full_text = " ".join(seg["text"] for seg in segments)
+                transcript.formatted = formatted
+                transcript.stats = stats
+                session.add(transcript)
 
-            # Delete existing segments (naive approach: delete all and recreate)
-            # In a real app we might want to be smarter, but this matches previous logic
-            stmt = select(Segment).where(Segment.meeting_id == meeting_id)
-            existing_segments = await session.exec(stmt)
-            for seg in existing_segments.all():
-                await session.delete(seg)
+                # Delete existing segments (naive approach: delete all and recreate)
+                # In a real app we might want to be smarter, but this matches previous logic
+                stmt = select(Segment).where(Segment.meeting_id == meeting_id)
+                existing_segments = await session.exec(stmt)
+                for seg in existing_segments.all():
+                    await session.delete(seg)
 
-            # Add new segments
-            for seg_data in segments:
-                segment = Segment(
-                    meeting_id=meeting_id,
-                    speaker=seg_data["speaker"],
-                    text=seg_data["text"],
-                    start_time=seg_data["start"],
-                    end_time=seg_data["end"],
-                )
-                session.add(segment)
+                # Add new segments
+                for seg_data in segments:
+                    segment = Segment(
+                        meeting_id=meeting_id,
+                        speaker=seg_data["speaker"],
+                        text=seg_data["text"],
+                        start_time=seg_data["start"],
+                        end_time=seg_data["end"],
+                    )
+                    session.add(segment)
 
-            # Update meeting status
-            meeting = await session.get(Meeting, meeting_id)
-            if meeting:
-                meeting.status = "completed"
-                meeting.updated_at = datetime.now()
-                session.add(meeting)
-
-            await session.commit()
+                # Update meeting status
+                meeting = await session.get(Meeting, meeting_id)
+                if meeting:
+                    meeting.status = "completed"
+                    meeting.updated_at = datetime.now()
+                    session.add(meeting)
 
     async def get(self, meeting_id: int) -> dict | None:
         """Get a meeting by ID."""
