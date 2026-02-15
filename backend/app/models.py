@@ -13,12 +13,6 @@ class MeetingBase(SQLModel):
     status: str = Field(default="processing")
 
 
-from typing import TYPE_CHECKING, Optional
-
-if TYPE_CHECKING:
-    pass # Cycles handled by string forward refs
-
-
 class Meeting(MeetingBase, table=True):
     __tablename__ = "meetings"  # type: ignore
 
@@ -26,9 +20,8 @@ class Meeting(MeetingBase, table=True):
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
 
-    # Use string forward references for relationships
-    transcript: Optional["Transcript"] = Relationship(back_populates="meeting")
-    segments: list["Segment"] = Relationship(back_populates="meeting")
+    transcript: Transcript | None = Relationship(back_populates="meeting")
+    segments: list[Segment] = Relationship(back_populates="meeting")
 
     extracted_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
 
@@ -44,7 +37,7 @@ class Transcript(SQLModel, table=True):
     stats: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=datetime.now)
 
-    meeting: Optional["Meeting"] = Relationship(back_populates="transcript")
+    meeting: Meeting = Relationship(back_populates="transcript")
 
 
 class Segment(SQLModel, table=True):
@@ -58,4 +51,4 @@ class Segment(SQLModel, table=True):
     end_time: float
     confidence: float | None = None
 
-    meeting: Optional["Meeting"] = Relationship(back_populates="segments")
+    meeting: Meeting = Relationship(back_populates="segments")
