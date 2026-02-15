@@ -8,7 +8,9 @@ from .domain import TranscriptSegment
 
 
 class WhisperTranscriber:
-    def __init__(self, model_size: str = "large-v3", device: str = "cuda", language: str | None = None):
+    def __init__(
+        self, model_size: str = "large-v3", device: str = "cuda", language: str | None = None
+    ):
         self.model = WhisperModel(
             model_size,
             device=device,

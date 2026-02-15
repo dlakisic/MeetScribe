@@ -1,7 +1,6 @@
 """Tests for authentication middleware."""
 
 import pytest
-from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from backend.app.core.auth import verify_token

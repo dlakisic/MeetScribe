@@ -144,7 +144,9 @@ def main():
     parser.add_argument("--port", type=int, default=8001, help="Port to bind to")
     parser.add_argument("--model", default="large-v3", help="Whisper model size")
     parser.add_argument("--device", default="cuda", help="Device (cuda/cpu)")
-    parser.add_argument("--language", default=None, help="Language code (e.g. fr, en). Auto-detect if omitted.")
+    parser.add_argument(
+        "--language", default=None, help="Language code (e.g. fr, en). Auto-detect if omitted."
+    )
 
     args = parser.parse_args()
 

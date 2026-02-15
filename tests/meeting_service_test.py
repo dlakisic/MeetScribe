@@ -4,9 +4,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from backend.app.transcription.result import TranscriptionResult
 from backend.app.schemas.extraction import ExtractedData, MeetingSummary
 from backend.app.services.meeting_service import MeetingService
+from backend.app.transcription.result import TranscriptionResult
 
 
 @pytest.fixture

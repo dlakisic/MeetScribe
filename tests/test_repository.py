@@ -9,9 +9,7 @@ from backend.app.repositories.meeting_repository import MeetingRepository
 
 @pytest.mark.asyncio
 async def test_create_meeting(test_repo: MeetingRepository):
-    meeting_id = await test_repo.create(
-        title="My Meeting", date=datetime(2026, 1, 1, 9, 0)
-    )
+    meeting_id = await test_repo.create(title="My Meeting", date=datetime(2026, 1, 1, 9, 0))
     assert isinstance(meeting_id, int)
     assert meeting_id > 0
 

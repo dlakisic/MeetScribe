@@ -1,9 +1,7 @@
 """Shared test fixtures for MeetScribe."""
 
-import tempfile
 from datetime import datetime
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -13,7 +11,6 @@ from backend.app.database import Database
 from backend.app.repositories.meeting_repository import MeetingRepository
 from backend.app.services.job_store import JobStore
 from backend.app.services.meeting_service import MeetingService
-
 
 # --- Database fixtures ---
 
