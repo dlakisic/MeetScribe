@@ -64,8 +64,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, restrict to extension ID
-    allow_credentials=True,
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -97,8 +96,8 @@ async def health():
 @app.post("/api/upload", dependencies=[Depends(require_auth)])
 async def upload_meeting(
     background_tasks: BackgroundTasks,
-    mic_file: UploadFile | None = File(None, description="Microphone audio file"),
-    tab_file: UploadFile = File(..., description="Tab audio file (or main file)"),
+    mic_file: UploadFile = File(..., description="Microphone audio file"),
+    tab_file: UploadFile = File(..., description="Tab audio file"),
     metadata: str = Form(..., description="Meeting metadata as JSON"),
 ):
     """Upload meeting audio files for transcription."""
@@ -113,13 +112,11 @@ async def upload_meeting(
     job_dir.mkdir(parents=True, exist_ok=True)
 
     # Save uploaded files
-    mic_path = None
-    if mic_file:
-        mic_path = job_dir / f"mic_{mic_file.filename}"
-        with open(mic_path, "wb") as f:
-            shutil.copyfileobj(mic_file.file, f)
-
+    mic_path = job_dir / f"mic_{mic_file.filename}"
     tab_path = job_dir / f"tab_{tab_file.filename}"
+
+    with open(mic_path, "wb") as f:
+        shutil.copyfileobj(mic_file.file, f)
     with open(tab_path, "wb") as f:
         shutil.copyfileobj(tab_file.file, f)
 
