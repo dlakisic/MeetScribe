@@ -19,7 +19,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock* ./
 
 # Install dependencies (will use cache if lockfile hasn't changed)
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev --group worker
 
 # Copy project files
 COPY gpu-worker/ ./gpu-worker/
