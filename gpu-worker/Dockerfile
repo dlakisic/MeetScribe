@@ -26,5 +26,5 @@ RUN uv sync --frozen --no-dev
 # RUN uv run python -c "from faster_whisper import WhisperModel; WhisperModel('large-v3')"
 
 # Entry point
-# Default command (can be overridden by docker-compose)
-CMD ["uv", "run", "python", "gpu-worker/worker_server.py", "--host", "0.0.0.0", "--port", "8001"]
+ENTRYPOINT ["uv", "run", "python"]
+CMD ["gpu-worker/worker_server.py", "--host", "0.0.0.0", "--port", "8001"]

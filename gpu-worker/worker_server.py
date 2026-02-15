@@ -60,8 +60,8 @@ async def health():
 
 @app.post("/transcribe")
 async def transcribe(
-    mic_file: UploadFile | None = File(None, description="Microphone audio file"),
-    tab_file: UploadFile = File(..., description="Tab audio file (or main file)"),
+    mic_file: UploadFile = File(..., description="Microphone audio file"),
+    tab_file: UploadFile = File(..., description="Tab audio file"),
     metadata: str = Form(..., description="Meeting metadata as JSON"),
 ):
     """Transcribe uploaded audio files.
@@ -87,15 +87,13 @@ async def transcribe(
 
         try:
             # Save uploaded files
-            mic_path = None
-            if mic_file:
-                mic_path = job_dir / f"mic_{mic_file.filename}"
-                with open(mic_path, "wb") as f:
-                    content = await mic_file.read()
-                    f.write(content)
-
+            mic_path = job_dir / f"mic_{mic_file.filename}"
             tab_path = job_dir / f"tab_{tab_file.filename}"
             output_path = job_dir / "output.json"
+
+            with open(mic_path, "wb") as f:
+                content = await mic_file.read()
+                f.write(content)
 
             with open(tab_path, "wb") as f:
                 content = await tab_file.read()
