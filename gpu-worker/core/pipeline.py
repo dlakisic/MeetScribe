@@ -56,8 +56,8 @@ def format_transcript(segments: list[TranscriptSegment]) -> str:
 
 
 class MeetingPipeline:
-    def __init__(self, model_size: str = "large-v3", device: str = "cuda"):
-        self.transcriber = WhisperTranscriber(model_size, device)
+    def __init__(self, model_size: str = "large-v3", device: str = "cuda", language: str | None = None):
+        self.transcriber = WhisperTranscriber(model_size, device, language=language)
         self.model_size = model_size
         self.device = device
         self._diarizer = None

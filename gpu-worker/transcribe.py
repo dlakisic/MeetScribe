@@ -24,9 +24,10 @@ def process_meeting(
     output_path: Path,
     model_size: str = "large-v3",
     device: str = "cuda",
+    language: str | None = None,
 ) -> dict:
     """Facade for processing a meeting."""
-    pipeline = MeetingPipeline(model_size=model_size, device=device)
+    pipeline = MeetingPipeline(model_size=model_size, device=device, language=language)
     return pipeline.process(
         mic_path=mic_path,
         tab_path=tab_path,

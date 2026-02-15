@@ -22,6 +22,7 @@ app = FastAPI(title="MeetScribe GPU Worker", version="0.1.0")
 _transcriber: Transcriber | None = None
 _model_size: str = "large-v3"
 _device: str = "cuda"
+_language: str | None = None  # None = auto-detect
 _lock: asyncio.Lock | None = None
 
 
@@ -30,7 +31,7 @@ def get_transcriber() -> Transcriber:
     global _transcriber
     if _transcriber is None:
         log.info(f"Loading Whisper model '{_model_size}' on {_device}")
-        _transcriber = Transcriber(model_size=_model_size, device=_device)
+        _transcriber = Transcriber(model_size=_model_size, device=_device, language=_language)
         log.info("Model loaded")
     return _transcriber
 
@@ -118,6 +119,7 @@ async def transcribe(
                     output_path=output_path,
                     model_size=_model_size,
                     device=_device,
+                    language=_language,
                 ),
             )
 
@@ -142,15 +144,17 @@ def main():
     parser.add_argument("--port", type=int, default=8001, help="Port to bind to")
     parser.add_argument("--model", default="large-v3", help="Whisper model size")
     parser.add_argument("--device", default="cuda", help="Device (cuda/cpu)")
+    parser.add_argument("--language", default=None, help="Language code (e.g. fr, en). Auto-detect if omitted.")
 
     args = parser.parse_args()
 
-    global _model_size, _device
+    global _model_size, _device, _language
     _model_size = args.model
     _device = args.device
+    _language = args.language
 
     log.info(f"Starting GPU Worker on {args.host}:{args.port}")
-    log.info(f"Model: {_model_size}, Device: {_device}")
+    log.info(f"Model: {_model_size}, Device: {_device}, Language: {_language or 'auto-detect'}")
 
     uvicorn.run(app, host=args.host, port=args.port)
 

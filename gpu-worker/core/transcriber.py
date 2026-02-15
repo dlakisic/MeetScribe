@@ -8,13 +8,14 @@ from .domain import TranscriptSegment
 
 
 class WhisperTranscriber:
-    def __init__(self, model_size: str = "large-v3", device: str = "cuda"):
+    def __init__(self, model_size: str = "large-v3", device: str = "cuda", language: str | None = None):
         self.model = WhisperModel(
             model_size,
             device=device,
             compute_type="float16" if device == "cuda" else "int8",
         )
         self.device = device
+        self.language = language  # None = auto-detect
 
     def transcribe_file(self, audio_path: Path, speaker_label: str) -> list[TranscriptSegment]:
         # Convert to WAV if needed
@@ -28,7 +29,7 @@ class WhisperTranscriber:
         try:
             segments, info = self.model.transcribe(
                 str(wav_path),
-                language="fr",
+                language=self.language,
                 beam_size=5,
                 word_timestamps=True,
                 vad_filter=True,
