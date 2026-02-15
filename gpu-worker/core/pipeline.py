@@ -62,19 +62,23 @@ class MeetingPipeline:
 
     def process(
         self,
-        mic_path: Path,
-        tab_path: Path,
+        mic_path: Path | None,
+        tab_path: Path | None,
         metadata: dict,
         output_path: Path,
     ) -> dict:
         local_speaker = metadata.get("local_speaker", "Dino")
         remote_speaker = metadata.get("remote_speaker", "Interlocuteur")
 
-        log.info(f"Transcribing microphone track as '{local_speaker}'")
-        mic_segments = self.transcriber.transcribe_file(mic_path, local_speaker)
+        mic_segments = []
+        if mic_path and mic_path.exists():
+            log.info(f"Transcribing microphone track as '{local_speaker}'")
+            mic_segments = self.transcriber.transcribe_file(mic_path, local_speaker)
 
-        log.info(f"Transcribing tab audio track as '{remote_speaker}'")
-        tab_segments = self.transcriber.transcribe_file(tab_path, remote_speaker)
+        tab_segments = []
+        if tab_path and tab_path.exists():
+            log.info(f"Transcribing tab audio track as '{remote_speaker}'")
+            tab_segments = self.transcriber.transcribe_file(tab_path, remote_speaker)
 
         mic_offset = metadata.get("mic_start_offset", 0.0)
         tab_offset = metadata.get("tab_start_offset", 0.0)

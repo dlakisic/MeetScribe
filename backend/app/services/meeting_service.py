@@ -39,8 +39,8 @@ class MeetingService:
         self,
         job_id: str,
         meeting_id: int,
-        mic_path: Path,
-        tab_path: Path,
+        mic_path: Path | None,
+        tab_path: Path | None,
         metadata: dict,
     ):
         """Background task to process uploaded meeting files."""

@@ -96,15 +96,18 @@ async def health():
 @app.post("/api/upload", dependencies=[Depends(require_auth)])
 async def upload_meeting(
     background_tasks: BackgroundTasks,
-    mic_file: UploadFile = File(..., description="Microphone audio file"),
-    tab_file: UploadFile = File(..., description="Tab audio file"),
+    mic_file: UploadFile | None = File(None, description="Microphone audio file"),
+    tab_file: UploadFile | None = File(None, description="Tab audio file"),
     metadata: str = Form(..., description="Meeting metadata as JSON"),
 ):
-    """Upload meeting audio files for transcription."""
+    """Upload meeting audio files for transcription. At least one file required."""
     try:
         meta = json.loads(metadata)
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid metadata JSON")
+
+    if not mic_file and not tab_file:
+        raise HTTPException(status_code=400, detail="At least one audio file is required")
 
     # Generate job ID
     job_id = str(uuid.uuid4())[:8]
@@ -112,13 +115,18 @@ async def upload_meeting(
     job_dir.mkdir(parents=True, exist_ok=True)
 
     # Save uploaded files
-    mic_path = job_dir / f"mic_{mic_file.filename}"
-    tab_path = job_dir / f"tab_{tab_file.filename}"
+    mic_path = None
+    tab_path = None
 
-    with open(mic_path, "wb") as f:
-        shutil.copyfileobj(mic_file.file, f)
-    with open(tab_path, "wb") as f:
-        shutil.copyfileobj(tab_file.file, f)
+    if mic_file:
+        mic_path = job_dir / f"mic_{mic_file.filename}"
+        with open(mic_path, "wb") as f:
+            shutil.copyfileobj(mic_file.file, f)
+
+    if tab_file:
+        tab_path = job_dir / f"tab_{tab_file.filename}"
+        with open(tab_path, "wb") as f:
+            shutil.copyfileobj(tab_file.file, f)
 
     # Create meeting record
     meeting_id = await meeting_service.repo.create(

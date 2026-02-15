@@ -60,8 +60,8 @@ async def health():
 
 @app.post("/transcribe")
 async def transcribe(
-    mic_file: UploadFile = File(..., description="Microphone audio file"),
-    tab_file: UploadFile = File(..., description="Tab audio file"),
+    mic_file: UploadFile | None = File(None, description="Microphone audio file"),
+    tab_file: UploadFile | None = File(None, description="Tab audio file"),
     metadata: str = Form(..., description="Meeting metadata as JSON"),
 ):
     """Transcribe uploaded audio files.
@@ -86,18 +86,25 @@ async def transcribe(
         job_dir = Path(tempfile.mkdtemp())
 
         try:
+            if not mic_file and not tab_file:
+                raise HTTPException(status_code=400, detail="At least one audio file is required")
+
             # Save uploaded files
-            mic_path = job_dir / f"mic_{mic_file.filename}"
-            tab_path = job_dir / f"tab_{tab_file.filename}"
+            mic_path = None
+            tab_path = None
             output_path = job_dir / "output.json"
 
-            with open(mic_path, "wb") as f:
-                content = await mic_file.read()
-                f.write(content)
+            if mic_file:
+                mic_path = job_dir / f"mic_{mic_file.filename}"
+                with open(mic_path, "wb") as f:
+                    content = await mic_file.read()
+                    f.write(content)
 
-            with open(tab_path, "wb") as f:
-                content = await tab_file.read()
-                f.write(content)
+            if tab_file:
+                tab_path = job_dir / f"tab_{tab_file.filename}"
+                with open(tab_path, "wb") as f:
+                    content = await tab_file.read()
+                    f.write(content)
 
             # Run transcription in threadpool to avoid blocking event loop
             # process_meeting is blocking (CPU/GPU bound)
