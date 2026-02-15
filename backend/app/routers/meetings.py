@@ -52,7 +52,7 @@ async def get_meeting_audio(
     config: Config = Depends(get_config),
 ):
     """Stream the audio file for a meeting."""
-    meeting = await service.repo.get(meeting_id)
+    meeting = await service.get_meeting(meeting_id)
     if not meeting or not meeting.get("audio_file"):
         raise HTTPException(status_code=404, detail="Audio not found")
 

@@ -66,7 +66,7 @@ async def upload_meeting(
     audio_file = str(primary_audio.relative_to(config.upload_dir)) if primary_audio else None
 
     # Create meeting record
-    meeting_id = await service.repo.create(
+    meeting_id = await service.create_meeting(
         title=meta.get("title", "Untitled Meeting"),
         date=datetime.fromisoformat(meta.get("date", datetime.now().isoformat())),
         platform=meta.get("platform"),

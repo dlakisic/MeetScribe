@@ -1,17 +1,18 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .config import load_config
+from .config import Config, load_config
 from .core.logging import get_logger
 from .database import Database
-from .gpu_client import TranscriptionService
+from .dependencies import get_config, get_meeting_service
 from .repositories.meeting_repository import MeetingRepository
 from .routers import jobs, meetings, segments, transcripts, upload
 from .services.extraction_service import ExtractionService
 from .services.job_store import JobStore
 from .services.meeting_service import MeetingService
+from .transcription import TranscriptionService
 
 log = get_logger("api")
 
@@ -79,31 +80,16 @@ async def root():
 
 
 @app.get("/health")
-async def health():
+async def health(
+    config: Config = Depends(get_config),
+    service: MeetingService = Depends(get_meeting_service),
+):
     """Health check endpoint."""
-    # Access services via app.state in simple checks, or use dependency injection in routes
-    # Here we are in a simple route, we can access app.state if we had request
-    # But strictly speaking, we are inside a route handler.
-    # Let's keep it simple and just return static status for now,
-    # or rely on dependencies if we move this to a router properly.
-    # For now, let's access via global app if needed or just return basic info.
-
-    # Ideally health check should check DB and GPU.
-    # We can use the app reference from global scope since we are in main.py
-
-    gpu_available = False
-    fallback = False
-
-    if hasattr(app.state, "meeting_service"):
-        gpu_available = await app.state.meeting_service.transcriber.gpu_client.is_gpu_available()
-
-    if hasattr(app.state, "config"):
-        fallback = app.state.config.fallback.enabled
-
+    gpu_available = await service.transcriber.gpu_client.is_gpu_available()
     return {
         "status": "ok",
         "gpu_available": gpu_available,
-        "fallback_enabled": fallback,
+        "fallback_enabled": config.fallback.enabled,
     }
 
 
