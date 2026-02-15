@@ -15,12 +15,14 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 # Set working directory
 WORKDIR /app
 
-# Copy project files
+# Copy dependency files first
 COPY pyproject.toml uv.lock* ./
-COPY gpu-worker/ ./gpu-worker/
 
-# Install dependencies
+# Install dependencies (will use cache if lockfile hasn't changed)
 RUN uv sync --frozen --no-dev
+
+# Copy project files
+COPY gpu-worker/ ./gpu-worker/
 
 # Download Whisper model at build time (optional, can be slow)
 # RUN uv run python -c "from faster_whisper import WhisperModel; WhisperModel('large-v3')"
