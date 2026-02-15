@@ -13,6 +13,10 @@ services:
       - MEETSCRIBE_GPU_HOST=${GPU_HOST}
       - MEETSCRIBE_GPU_USER=${GPU_USER:-dino}
       - MEETSCRIBE_API_TOKEN=${API_TOKEN}
+      # LLM Configuration
+      - LLM_BASE_URL=${LLM_BASE_URL}
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_MODEL=${LLM_MODEL:-llama3}
       # Smart Plug Config (Optional)
       - MEETSCRIBE_PLUG_DEVICE_ID=${PLUG_DEVICE_ID}
       - MEETSCRIBE_PLUG_IP=${PLUG_IP}
