@@ -78,5 +78,5 @@ def _friendly_label(pyannote_label: str) -> str:
     try:
         num = int(pyannote_label.split("_")[-1])
         return f"Speaker {num + 1}"
-    except ValueError, IndexError:
+    except (ValueError, IndexError):
         return pyannote_label
