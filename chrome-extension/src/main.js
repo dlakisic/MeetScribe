@@ -275,7 +275,9 @@ function renderTranscript(transcriptData) {
         return;
     }
 
-    const segments = JSON.parse(transcriptData.segments);
+    const segments = typeof transcriptData.segments === 'string'
+        ? JSON.parse(transcriptData.segments)
+        : transcriptData.segments;
 
     segments.forEach(seg => {
         const el = document.createElement('div');
@@ -305,7 +307,9 @@ function renderInsights(structuredDataStr) {
     if (!structuredDataStr) return;
 
     try {
-        const data = JSON.parse(structuredDataStr);
+        const data = typeof structuredDataStr === 'string'
+            ? JSON.parse(structuredDataStr)
+            : structuredDataStr;
 
         if (data.summary) {
             summaryText.textContent = data.summary.abstract;
