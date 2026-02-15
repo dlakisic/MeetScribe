@@ -22,9 +22,13 @@ class Meeting(MeetingBase, table=True):
     updated_at: datetime = Field(default_factory=datetime.now)
 
     transcript: Transcript = Relationship(
-        back_populates="meeting", sa_relationship_kwargs={"uselist": False}
+        back_populates="meeting",
+        sa_relationship_kwargs={"uselist": False, "cascade": "all, delete-orphan"},
     )
-    segments: list[Segment] = Relationship(back_populates="meeting")
+    segments: list[Segment] = Relationship(
+        back_populates="meeting",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
 
     extracted_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
 

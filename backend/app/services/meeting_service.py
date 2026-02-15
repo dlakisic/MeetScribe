@@ -2,8 +2,8 @@ from datetime import datetime
 from pathlib import Path
 
 from ..core.logging import get_logger
-from ..gpu_client import TranscriptionService
 from ..repositories.meeting_repository import MeetingRepository
+from ..transcription import TranscriptionService
 from .extraction_service import ExtractionService
 from .job_store import JobStore
 
@@ -32,8 +32,9 @@ class MeetingService:
         platform: str | None = None,
         url: str | None = None,
         duration: float | None = None,
+        audio_file: str | None = None,
     ) -> int:
-        return await self.repo.create(title, date, platform, url, duration)
+        return await self.repo.create(title, date, platform, url, duration, audio_file)
 
     async def process_upload(
         self,
@@ -54,41 +55,48 @@ class MeetingService:
                 job_id=job_id,
             )
 
-            if result.success:
-                await self.repo.save_transcript(
-                    meeting_id=meeting_id,
-                    segments=result.segments or [],
-                    formatted=result.formatted or "",
-                    stats=result.stats or {},
-                )
+            if not result.success:
+                await self._mark_failed(job_id, meeting_id, result.error)
+                return
 
-                # Extract structured data (Actions, Summary)
-                try:
-                    log.info(f"Starting extraction for meeting {meeting_id}")
-                    extracted = await self.extraction_service.extract_from_transcript(
-                        result.formatted or ""
-                    )
-                    await self.repo.save_extracted_data(meeting_id, extracted.model_dump())
-                    log.info(f"Extraction completed for meeting {meeting_id}")
-                except Exception as e:
-                    log.warning(f"Extraction failed for meeting {meeting_id}: {e}")
+            await self.repo.save_transcript(
+                meeting_id=meeting_id,
+                segments=result.segments or [],
+                formatted=result.formatted or "",
+                stats=result.stats or {},
+            )
+            await self._run_extraction(meeting_id, result.formatted or "")
 
-                self.job_store.update_status(
-                    job_id,
-                    "completed",
-                    result={
-                        "meeting_id": meeting_id,
-                        "segments_count": len(result.segments or []),
-                        "used_fallback": result.used_fallback,
-                    },
-                )
-            else:
-                await self.repo.update_status(meeting_id, "failed")
-                self.job_store.update_status(job_id, "failed", error=result.error)
+            self.job_store.update_status(
+                job_id,
+                "completed",
+                result={
+                    "meeting_id": meeting_id,
+                    "segments_count": len(result.segments or []),
+                    "used_fallback": result.used_fallback,
+                },
+            )
 
         except Exception as e:
-            await self.repo.update_status(meeting_id, "failed")
-            self.job_store.update_status(job_id, "failed", error=str(e))
+            await self._mark_failed(job_id, meeting_id, str(e))
+
+    async def _run_extraction(self, meeting_id: int, formatted_text: str):
+        """Extract structured data (summary, actions, decisions) from transcript."""
+        try:
+            log.info(f"Starting extraction for meeting {meeting_id}")
+            extracted = await self.extraction_service.extract_from_transcript(formatted_text)
+            await self.repo.save_extracted_data(meeting_id, extracted.model_dump())
+            log.info(f"Extraction completed for meeting {meeting_id}")
+        except Exception as e:
+            log.warning(f"Extraction failed for meeting {meeting_id}: {e}")
+
+    async def _mark_failed(self, job_id: str, meeting_id: int, error: str | None):
+        """Mark both job and meeting as failed."""
+        await self.repo.update_status(meeting_id, "failed")
+        self.job_store.update_status(job_id, "failed", error=error)
+
+    async def get_meeting(self, meeting_id: int) -> dict | None:
+        return await self.repo.get(meeting_id)
 
     async def get_meeting_details(self, meeting_id: int) -> dict | None:
         meeting = await self.repo.get(meeting_id)

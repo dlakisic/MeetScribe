@@ -26,6 +26,7 @@ class FallbackConfig:
     enabled: bool = True
     model_size: str = "medium"  # Smaller model for CPU
     timeout: int = 3600  # Allow more time for CPU
+    worker_path: str = ""  # Path to gpu-worker/ dir; auto-detected if empty
 
 
 @dataclass
@@ -100,6 +101,9 @@ def load_config() -> Config:
 
     if api_token := os.getenv("MEETSCRIBE_API_TOKEN"):
         config.api_token = api_token
+
+    if worker_path := os.getenv("MEETSCRIBE_FALLBACK_WORKER_PATH"):
+        config.fallback.worker_path = worker_path
 
     # Smart plug config
     if plug_id := os.getenv("MEETSCRIBE_PLUG_DEVICE_ID"):

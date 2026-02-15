@@ -9,6 +9,8 @@ from ..models import Meeting, Segment, Transcript
 class MeetingRepository:
     """Repository for accessing meeting data via SQLModel."""
 
+    UPDATABLE_FIELDS = {"title", "platform", "url", "duration"}
+
     def __init__(self, db: Database):
         self.db = db
 
@@ -47,13 +49,13 @@ class MeetingRepository:
                 await session.commit()
 
     async def update_fields(self, meeting_id: int, fields: dict) -> bool:
-        """Update meeting fields."""
+        """Update allowed meeting fields only."""
         async with self.db.session() as session:
             meeting = await session.get(Meeting, meeting_id)
             if not meeting:
                 return False
             for key, value in fields.items():
-                if hasattr(meeting, key):
+                if key in self.UPDATABLE_FIELDS:
                     setattr(meeting, key, value)
             meeting.updated_at = datetime.now()
             session.add(meeting)
@@ -185,25 +187,11 @@ class MeetingRepository:
             return result.rowcount
 
     async def delete(self, meeting_id: int) -> bool:
-        """Delete a meeting and all related data."""
+        """Delete a meeting and all related data (cascade handles children)."""
         async with self.db.session() as session:
             meeting = await session.get(Meeting, meeting_id)
             if not meeting:
                 return False
-
-            # Delete segments
-            stmt = select(Segment).where(Segment.meeting_id == meeting_id)
-            segments = await session.exec(stmt)
-            for seg in segments.all():
-                await session.delete(seg)
-
-            # Delete transcript
-            stmt = select(Transcript).where(Transcript.meeting_id == meeting_id)
-            transcripts = await session.exec(stmt)
-            for t in transcripts.all():
-                await session.delete(t)
-
-            # Delete meeting
             await session.delete(meeting)
             await session.commit()
             return True
