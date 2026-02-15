@@ -11,6 +11,7 @@ class MeetingBase(SQLModel):
     platform: str | None = None
     url: str | None = None
     status: str = Field(default="processing")
+    audio_file: str | None = None  # Relative path to audio file in upload_dir
 
 
 class Meeting(MeetingBase, table=True):
