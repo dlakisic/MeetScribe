@@ -19,15 +19,17 @@
       <img src="../icons/icon48.png" alt="Logo">
       <h1>MeetScribe</h1>
     </div>
+    <div class="sidebar-search">
+      <input type="text" id="search-input" placeholder="Rechercher...">
+    </div>
     <div id="meeting-list" class="meeting-list">
-      <!-- Meeting items will be injected here -->
       <div class="empty-state" style="height: 100px;">
         Chargement...
       </div>
     </div>
     <div class="sidebar-footer">
       <button id="settings-btn" class="btn-icon" title="Paramètres">
-        ⚙️
+        &#9881;
       </button>
     </div>
   </aside>
@@ -55,7 +57,7 @@
     <!-- Header -->
     <header class="content-header">
       <div class="header-title">
-        <h2 id="current-title">Sélectionnez une réunion</h2>
+        <h2 id="current-title" contenteditable="false">Sélectionnez une réunion</h2>
         <div class="header-meta">
           <span id="current-date">--/--/--</span>
           <span id="current-platform">--</span>
@@ -70,43 +72,63 @@
 
     <div class="content-body" id="details-view" style="display: none;">
 
-      <!-- Center: Transcript -->
-      <section class="transcript-view">
-        <div class="section-header">Transcript</div>
+      <!-- Tabs -->
+      <div class="tab-bar">
+        <button class="tab active" data-tab="transcript">Transcript</button>
+        <button class="tab" data-tab="insights">Résumé</button>
+        <button class="tab" data-tab="actions">Actions</button>
+      </div>
+
+      <!-- Tab: Transcript -->
+      <div class="tab-content active" id="tab-transcript">
+        <div class="transcript-toolbar" id="transcript-toolbar" style="display: none;">
+          <button class="btn btn-small" id="btn-copy">Copier</button>
+          <button class="btn btn-small" id="btn-export">Exporter .txt</button>
+          <button class="btn btn-small btn-danger" id="btn-delete">Supprimer</button>
+        </div>
+        <!-- Audio Player -->
+        <div id="audio-player-bar" class="audio-player-bar" style="display: none;">
+          <audio id="audio-player" preload="metadata"></audio>
+          <button id="audio-play-btn" class="audio-btn">&#9654;</button>
+          <span id="audio-current-time" class="audio-time">0:00</span>
+          <input type="range" id="audio-seek" class="audio-seek" min="0" max="100" value="0" step="0.1">
+          <span id="audio-duration" class="audio-time">0:00</span>
+          <input type="range" id="audio-volume" class="audio-volume" min="0" max="1" value="1" step="0.05">
+        </div>
         <div id="transcript-container" class="scroll-area">
           <!-- Segments injected here -->
         </div>
-      </section>
+      </div>
 
-      <!-- Right: Insights -->
-      <section class="insights-view">
-        <div class="section-header">Insights</div>
+      <!-- Tab: Insights (Summary) -->
+      <div class="tab-content" id="tab-insights">
         <div class="scroll-area">
-
-          <!-- Summary -->
           <div class="insight-card">
             <div class="insight-title">Résumé</div>
             <p id="summary-text" class="summary-text">...</p>
           </div>
+          <div class="insight-card" id="topics-card" style="display: none;">
+            <div class="insight-title">Topics</div>
+            <div id="topics-list"></div>
+          </div>
+        </div>
+      </div>
 
-          <!-- Action Items -->
+      <!-- Tab: Actions & Decisions -->
+      <div class="tab-content" id="tab-actions">
+        <div class="scroll-area">
           <div class="insight-card">
             <div class="insight-title">Actions</div>
             <div id="actions-list">
-              <!-- Actions injected here -->
             </div>
           </div>
-
-          <!-- Decisions -->
           <div class="insight-card">
             <div class="insight-title">Décisions Clés</div>
             <ul id="decisions-list" class="insight-list">
-              <!-- Decisions injected here -->
             </ul>
           </div>
-
         </div>
-      </section>
+      </div>
 
     </div>
 
