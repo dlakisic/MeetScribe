@@ -1,5 +1,5 @@
 from ..core.llm import LLMFactory
-from ..schemas.extraction import ExtractedData
+from ..schemas.extraction import ExtractedData, MeetingSummary
 
 
 class ExtractionService:
@@ -13,14 +13,20 @@ class ExtractionService:
         Uses the configured LLM provider (Ollama/OpenAI) and enforces the ExtractedData schema.
         """
         if not transcript_text or len(transcript_text) < 50:
-            # Return empty structure if transcript is too short
             return ExtractedData(
-                summary={"abstract": "Transcript too short.", "topics": [], "sentiment": "neutral"},
+                summary=MeetingSummary(abstract="Transcript too short.", topics=[], sentiment="neutral"),
                 action_items=[],
                 decisions=[],
             )
 
-        resp = self.client.chat.completions.create(
+        if not LLMFactory.is_configured():
+            return ExtractedData(
+                summary=MeetingSummary(abstract="LLM not configured (skipped).", topics=[], sentiment="neutral"),
+                action_items=[],
+                decisions=[],
+            )
+
+        resp = await self.client.chat.completions.create(
             model=self.model,
             response_model=ExtractedData,
             messages=[
@@ -30,6 +36,6 @@ class ExtractionService:
                 },
                 {"role": "user", "content": transcript_text},
             ],
-            max_retries=3,
+            max_retries=1,
         )
         return resp
