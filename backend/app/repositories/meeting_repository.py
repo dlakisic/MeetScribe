@@ -19,6 +19,7 @@ class MeetingRepository:
         platform: str | None = None,
         url: str | None = None,
         duration: float | None = None,
+        audio_file: str | None = None,
     ) -> int:
         """Create a new meeting record."""
         meeting = Meeting(
@@ -27,6 +28,7 @@ class MeetingRepository:
             platform=platform,
             url=url,
             duration=duration,
+            audio_file=audio_file,
         )
         async with self.db.session() as session:
             session.add(meeting)
@@ -43,6 +45,20 @@ class MeetingRepository:
                 meeting.updated_at = datetime.now()
                 session.add(meeting)
                 await session.commit()
+
+    async def update_fields(self, meeting_id: int, fields: dict) -> bool:
+        """Update meeting fields."""
+        async with self.db.session() as session:
+            meeting = await session.get(Meeting, meeting_id)
+            if not meeting:
+                return False
+            for key, value in fields.items():
+                if hasattr(meeting, key):
+                    setattr(meeting, key, value)
+            meeting.updated_at = datetime.now()
+            session.add(meeting)
+            await session.commit()
+            return True
 
     async def save_transcript(
         self,
@@ -166,6 +182,30 @@ class MeetingRepository:
             result = await session.exec(statement)
             await session.commit()
             return result.rowcount
+
+    async def delete(self, meeting_id: int) -> bool:
+        """Delete a meeting and all related data."""
+        async with self.db.session() as session:
+            meeting = await session.get(Meeting, meeting_id)
+            if not meeting:
+                return False
+
+            # Delete segments
+            stmt = select(Segment).where(Segment.meeting_id == meeting_id)
+            segments = await session.exec(stmt)
+            for seg in segments.all():
+                await session.delete(seg)
+
+            # Delete transcript
+            stmt = select(Transcript).where(Transcript.meeting_id == meeting_id)
+            transcripts = await session.exec(stmt)
+            for t in transcripts.all():
+                await session.delete(t)
+
+            # Delete meeting
+            await session.delete(meeting)
+            await session.commit()
+            return True
 
     async def save_extracted_data(self, meeting_id: int, data: dict):
         """Save extracted data for a meeting."""

@@ -101,11 +101,17 @@ class MeetingService:
             "transcript": transcript,
         }
 
+    async def update_meeting(self, meeting_id: int, fields: dict) -> bool:
+        return await self.repo.update_fields(meeting_id, fields)
+
     async def update_segment_text(self, segment_id: int, text: str) -> bool:
         return await self.repo.update_segment_text(segment_id, text)
 
     async def update_speaker(self, meeting_id: int, old_name: str, new_name: str) -> int:
         return await self.repo.update_speaker(meeting_id, old_name, new_name)
+
+    async def delete_meeting(self, meeting_id: int) -> bool:
+        return await self.repo.delete(meeting_id)
 
     async def list_meetings(self, limit: int = 50, offset: int = 0) -> dict:
         meetings = await self.repo.list(limit, offset)
