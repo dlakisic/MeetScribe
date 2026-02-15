@@ -334,7 +334,13 @@
       <img src="../icons/icon48.png" alt="">
       <span>MeetScribe</span>
     </div>
-    <div id="backend-status" class="connection-badge">OFFLINE</div>
+    <div style="display: flex; gap: 8px; align-items: center;">
+      <button id="open-dashboard" class="connection-badge"
+        style="cursor: pointer; border: 1px solid var(--border); background: var(--surface);">
+        DASHBOARD ↗
+      </button>
+      <div id="backend-status" class="connection-badge">OFFLINE</div>
+    </div>
   </div>
 
   <!-- Channel strip -->
@@ -381,11 +387,7 @@
   <!-- Footer -->
   <div class="footer">
     <div class="hotkey">Rec <kbd>Ctrl+Shift+R</kbd></div>
-    <div style="flex: 1"></div>
-    <button id="dashboard-btn" class="hotkey"
-      style="background: none; border: none; cursor: pointer; color: var(--text);">
-      Dashboard ↗
-    </button>
+    <div class="hotkey">Snap <kbd>Ctrl+Shift+S</kbd></div>
   </div>
 
   <script src="popup.js"></script>

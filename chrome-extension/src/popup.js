@@ -12,7 +12,6 @@ const meetingPlatform = document.getElementById('meeting-platform');
 const meetingParticipants = document.getElementById('meeting-participants');
 const toggleBtn = document.getElementById('toggle-btn');
 const screenshotBtn = document.getElementById('screenshot-btn');
-const dashboardBtn = document.getElementById('dashboard-btn');
 
 let updateInterval = null;
 
@@ -89,11 +88,20 @@ async function updateState() {
   }
 }
 
+// Open Dashboard
+const openDashboardBtn = document.getElementById('open-dashboard');
+if (openDashboardBtn) {
+  openDashboardBtn.addEventListener('click', () => {
+    chrome.tabs.create({ url: 'src/main.html' });
+  });
+}
+
 // Check backend connectivity
 async function checkBackend() {
   try {
-    const config = await chrome.storage.local.get(['backendUrl']);
-    const backendUrl = config.backendUrl || 'http://192.168.1.19:8888';
+    // Use sync storage and correct key (api_url) to match main.js
+    const config = await chrome.storage.sync.get(['api_url']);
+    const backendUrl = config.api_url || 'http://localhost:8090';
 
     const response = await fetch(`${backendUrl}/health`, {
       method: 'GET',
@@ -148,10 +156,3 @@ screenshotBtn.addEventListener('click', async () => {
 
   screenshotBtn.disabled = false;
 });
-
-// Dashboard button
-if (dashboardBtn) {
-  dashboardBtn.addEventListener('click', () => {
-    chrome.tabs.create({ url: 'src/main.html' });
-  });
-}
