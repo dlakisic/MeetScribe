@@ -32,9 +32,7 @@ class Database:
             columns = {row[1] for row in result.fetchall()}
 
             if "audio_file" not in columns:
-                await conn.execute(
-                    text("ALTER TABLE meetings ADD COLUMN audio_file TEXT")
-                )
+                await conn.execute(text("ALTER TABLE meetings ADD COLUMN audio_file TEXT"))
 
     async def close(self):
         """Close database connection."""

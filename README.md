@@ -1,15 +1,25 @@
 # MeetScribe 🎙️
 
-**Automated Meeting Intelligence System** using Local LLMs & Whisper.
+**Automated Meeting Intelligence System** using LLMs & Whisper.
 
-## 🚀 Vision
-MeetScribe automatically records, transcribes, and analyzes video conferences (Google Meet, Zoom, Teams) completely **offline** and **locally**, ensuring 100% data privacy.
-Designed for a distributed home-lab architecture: lightweight orchestration (N100) + heavy ML workloads (GPU).
+Self-hosted, privacy-first meeting transcription with speaker diarization, AI-powered summaries, and a full-featured Chrome extension dashboard.
+
+## ✨ Features
+
+- **Automatic Transcription** — Faster-Whisper (large-v3) with GPU acceleration
+- **Speaker Diarization** — Pyannote identifies who speaks when (multi-speaker support)
+- **LLM-Powered Analysis** — Automatic summary, action items, key decisions, and topic extraction
+- **Audio Playback Sync** — Built-in player with transcript highlighting and click-to-seek
+- **Dual-Track Recording** — Separate mic + tab capture for clean speaker separation
+- **Inline Editing** — Edit transcript text, rename speakers, update meeting titles directly in the dashboard
+- **Search & Filter** — Find meetings by title or platform
+- **Export** — Copy to clipboard or export as `.txt`
+- **Secure Access** — Bearer token auth, Tailscale-friendly (no public IP)
+- **Smart Power Management** — Optional Tuya smart plug integration to wake GPU on demand
 
 ## 🏗️ Architecture
 
-The system is built on a **Split-Architecture** to optimize for hardware constraints and 24/7 availability.
-**Accessible securely from anywhere via Tailscale** (no public IP exposure).
+Split-architecture optimized for hardware constraints and 24/7 availability.
 
 ```mermaid
 graph TD
@@ -20,42 +30,36 @@ graph TD
     subgraph "HomeLab Server (N100)"
         API -->|1. Store Job| DB[(SQLite)]
         API -->|2. Forward Audio| Worker[GPU Worker]
+        API -->|3. LLM Extraction| LLM[LLM API]
         Worker -->|4. Return Transcript| API
-        API -->|5. Save Transcript| DB
+        API -->|5. Save Results| DB
     end
 
     subgraph "Workstation (RTX 4070)"
-        Worker -->|3. Async Lock| Whisper[Faster-Whisper]
+        Worker --> Whisper[Faster-Whisper]
+        Worker --> Pyannote[Pyannote Diarization]
     end
 
     classDef hardware fill:#f9f,stroke:#333,stroke-width:2px;
-    class Worker,Whisper hardware;
+    class Worker,Whisper,Pyannote hardware;
 ```
 
-1.  **Orchestrator Backend (FastAPI)**:
-    *   Runs on low-power hardware (N100).
-    *   Manages API requests, Database state, and Business Logic.
-2.  **ML Worker (GPU/CUDA)**:
-    *   Runs on consumer GPU (RTX 4070).
-    *   Exposes a stateless API for heavy lifting (Transcription/Diarization).
-    *   Powered by `faster-whisper` for 4x speedup vs vanilla Whisper.
-    *   Protected by **Async Locks** and ThreadPools to prevent OOM.
-3.  **Chrome Extension (Manifest V3)**:
-    *   Captures high-quality audio streams (System Tab + Local Mic).
-    *   No cloud dependency.
+| Component | Role | Hardware |
+|-----------|------|----------|
+| **Backend API** (FastAPI) | Orchestration, storage, auth, LLM extraction | N100 (low-power, 24/7) |
+| **GPU Worker** | Whisper transcription + Pyannote diarization | RTX 4070 (on-demand) |
+| **Chrome Extension** | Audio capture, dashboard UI | Client browser |
 
 ## 🛠️ Tech Stack
 
-*   **Language**: Python 3.14
-*   **Framework**: FastAPI
-*   **Data Layer**: SQLModel
-*   **Database**: SQLite
-*   **ML Engine**: Faster-Whisper
-*   **Concurrency**: Asyncio, ThreadPoolExecutor
-*   **DevOps**: Docker ready, modular service design
-
-
-
+| Layer | Technology |
+|-------|-----------|
+| **Backend** | Python 3.14, FastAPI, SQLModel, SQLite |
+| **ML / Transcription** | Faster-Whisper (large-v3), CUDA |
+| **Speaker Diarization** | Pyannote Audio 3.1 |
+| **LLM Extraction** | Configurable LLM API (summary, actions, decisions) |
+| **Frontend** | Chrome Extension (Manifest V3), vanilla JS |
+| **Infrastructure** | Docker, async Python, Tailscale |
 
 ## 📦 Installation & Usage
 
@@ -66,6 +70,15 @@ uv sync
 uv run uvicorn app.main:app --port 8000
 ```
 
+**Environment variables:**
+```env
+MEETSCRIBE_API_TOKEN=your-secret-token
+MEETSCRIBE_GPU_HOST=gpu-machine-ip
+MEETSCRIBE_SPEAKER_NAME=YourName
+LLM_API_KEY=your-llm-api-key        # For summary/action extraction
+LLM_BASE_URL=https://your-llm-endpoint
+```
+
 ### 2. GPU Worker
 ```bash
 cd gpu-worker
@@ -74,11 +87,48 @@ uv sync
 uv run worker_server.py --port 8001 --device cuda
 ```
 
-### 3. Running Tests
-```bash
-# Integration test (requires backend running)
-uv run pytest tests/integration_test.py
+**Optional — Speaker Diarization:**
+```env
+HF_TOKEN=hf_xxx  # HuggingFace token (accept pyannote licenses first)
+```
 
-# Worker Concurrency test
+### 3. Chrome Extension
+1. Open `chrome://extensions/`
+2. Enable Developer Mode
+3. Load unpacked → select `chrome-extension/`
+4. Configure API URL and token in the extension settings
+
+### 4. Running Tests
+```bash
+uv run pytest tests/integration_test.py
 uv run pytest tests/worker_concurrency_test.py
+```
+
+## 📐 Project Structure
+
+```
+meetscribe/
+├── backend/app/
+│   ├── main.py                 # FastAPI endpoints
+│   ├── config.py               # Environment-based config
+│   ├── models.py               # SQLModel schema
+│   ├── database.py             # SQLite + auto-migrations
+│   ├── gpu_client.py           # GPU worker communication
+│   ├── repositories/           # Data access layer
+│   └── services/               # Business logic (meeting, extraction)
+├── gpu-worker/
+│   ├── worker_server.py        # HTTP server for transcription jobs
+│   └── core/
+│       ├── pipeline.py         # Transcription + diarization pipeline
+│       ├── transcriber.py      # Faster-Whisper wrapper
+│       └── diarizer.py         # Pyannote speaker diarization
+├── chrome-extension/
+│   └── src/
+│       ├── main.html           # Dashboard UI
+│       ├── main.js             # App logic (player, tabs, editing)
+│       ├── main.css            # Dark theme styles
+│       ├── popup.html          # Extension popup (capture controls)
+│       └── background.js       # Audio capture service worker
+└── infra/server/
+    └── docker-compose.yml      # Deployment config
 ```
