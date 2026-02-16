@@ -92,12 +92,8 @@ class TestTranscriptionServiceDI:
     async def test_gpu_fails_uses_fallback(self, gpu_client, fallback):
         """When GPU is available but fails, fall back to CPU."""
         gpu_client.is_gpu_available.return_value = True
-        gpu_client.transcribe.return_value = TranscriptionResult(
-            success=False, error="GPU OOM"
-        )
-        fallback.transcribe.return_value = TranscriptionResult(
-            success=True, segments=[]
-        )
+        gpu_client.transcribe.return_value = TranscriptionResult(success=False, error="GPU OOM")
+        fallback.transcribe.return_value = TranscriptionResult(success=True, segments=[])
 
         svc = TranscriptionService(gpu_client, fallback)
         result = await svc.transcribe(Path("/mic.wav"), Path("/tab.wav"), {}, "job-3")
@@ -121,9 +117,7 @@ class TestTranscriptionServiceDI:
         """GPUWaker is called when GPU is not available."""
         gpu_client.is_gpu_available.return_value = False
         gpu_waker.try_wake.return_value = True
-        gpu_client.transcribe.return_value = TranscriptionResult(
-            success=True, segments=[]
-        )
+        gpu_client.transcribe.return_value = TranscriptionResult(success=True, segments=[])
 
         svc = TranscriptionService(gpu_client, fallback, gpu_waker)
         result = await svc.transcribe(Path("/mic.wav"), Path("/tab.wav"), {}, "job-5")

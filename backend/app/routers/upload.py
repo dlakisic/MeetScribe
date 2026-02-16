@@ -28,7 +28,7 @@ def _parse_date(date_str: str | None) -> datetime:
         return datetime.now()
     try:
         return datetime.fromisoformat(date_str)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         raise HTTPException(status_code=400, detail="Invalid date format")
 
 

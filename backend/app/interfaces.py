@@ -59,9 +59,7 @@ class AbstractMeetingRepository(ABC):
     async def update_segment_text(self, segment_id: int, text: str) -> bool: ...
 
     @abstractmethod
-    async def update_speaker(
-        self, meeting_id: int, old_name: str, new_name: str
-    ) -> int: ...
+    async def update_speaker(self, meeting_id: int, old_name: str, new_name: str) -> int: ...
 
 
 class AbstractTranscriber(ABC):

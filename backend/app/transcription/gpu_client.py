@@ -27,9 +27,7 @@ class GPUClient:
         """Check if the GPU worker is reachable."""
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
-                response = await client.get(
-                    f"{self.base_url}/health", headers=self._auth_headers
-                )
+                response = await client.get(f"{self.base_url}/health", headers=self._auth_headers)
                 if response.status_code == 200:
                     data = response.json()
                     return data.get("status") == "ok"

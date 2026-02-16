@@ -102,6 +102,7 @@ async def test_get_job_status(client, test_app):
     # Need a meeting first (FK constraint)
     repo = test_app.state.meeting_service.repo
     from datetime import datetime
+
     mid = await repo.create(title="Test", date=datetime.now())
     await job_store.create_job("test-job", meeting_id=mid)
     await job_store.update_status("test-job", "completed", result={"meeting_id": mid})

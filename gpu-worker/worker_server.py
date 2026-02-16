@@ -190,7 +190,9 @@ def main():
     worker.language = args.language
 
     log.info(f"Starting GPU Worker on {args.host}:{args.port}")
-    log.info(f"Model: {worker.model_size}, Device: {worker.device}, Language: {worker.language or 'auto-detect'}")
+    log.info(
+        f"Model: {worker.model_size}, Device: {worker.device}, Language: {worker.language or 'auto-detect'}"
+    )
 
     uvicorn.run(app, host=args.host, port=args.port)
 

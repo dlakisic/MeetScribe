@@ -66,9 +66,7 @@ class Database:
             )
             result = await conn.execute(text("SELECT version FROM _schema_version"))
             if result.fetchone() is None:
-                await conn.execute(
-                    text("INSERT INTO _schema_version (id, version) VALUES (1, 0)")
-                )
+                await conn.execute(text("INSERT INTO _schema_version (id, version) VALUES (1, 0)"))
 
     async def _run_migrations(self):
         """Run all pending migrations in order."""
