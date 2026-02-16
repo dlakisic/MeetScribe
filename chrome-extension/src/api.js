@@ -1,6 +1,5 @@
 import { getApiUrl, getApiToken } from './config.js';
 
-// --- Authenticated Fetch ---
 async function authFetch(url, options = {}) {
     const headers = options.headers || {};
     const token = getApiToken();
@@ -8,8 +7,6 @@ async function authFetch(url, options = {}) {
     options.headers = headers;
     return fetch(url, options);
 }
-
-// --- API Methods ---
 
 export async function fetchMeetings({ limit = 50, offset = 0 } = {}) {
     try {

@@ -1,23 +1,20 @@
-/**
- * MeetScribe Service Worker
- * Handles URL detection, recording coordination, and backend communication
- */
+import * as Config from './config.js';
 
-// Configuration
-const CONFIG = {
-  backendUrl: 'http://192.168.1.19:8888',
-  apiToken: null, // Optional: Bearer token for API auth
-  autoStartDelay: 5000, // Wait 5s before auto-starting recording
-  platforms: {
-    'meet.google.com': { name: 'Google Meet', priority: 0 },
-    'zoom.us': { name: 'Zoom', priority: 0 },
-    'teams.microsoft.com': { name: 'Microsoft Teams', priority: 1 },
-  },
+const PLATFORMS = {
+  'meet.google.com': { name: 'Google Meet', priority: 0 },
+  'zoom.us': { name: 'Zoom', priority: 0 },
+  'teams.microsoft.com': { name: 'Microsoft Teams', priority: 1 },
 };
 
-// State
+const RecordingState = {
+  IDLE: 'idle',
+  STARTING: 'starting',
+  RECORDING: 'recording',
+  STOPPING: 'stopping',
+};
+
 let state = {
-  isRecording: false,
+  recordingState: RecordingState.IDLE,
   currentTabId: null,
   currentPlatform: null,
   recordingStartTime: null,
@@ -28,46 +25,29 @@ let state = {
   autoStartTimeout: null,
 };
 
-// Initialize
-chrome.runtime.onInstalled.addListener(() => {
-  console.log('MeetScribe installed');
-  loadConfig();
+Config.loadConfig().then(() => {
+  console.log('MeetScribe config loaded:', Config.getConfig());
 });
 
-// Load config from storage
-async function loadConfig() {
-  const stored = await chrome.storage.local.get(['backendUrl', 'apiToken']);
-  if (stored.backendUrl) {
-    CONFIG.backendUrl = stored.backendUrl;
-  }
-  if (stored.apiToken) {
-    CONFIG.apiToken = stored.apiToken;
-  }
-}
+chrome.runtime.onInstalled.addListener(() => {
+  console.log('MeetScribe installed');
+  Config.loadConfig();
+});
 
-// Save config to storage
-async function saveConfig() {
-  await chrome.storage.local.set({
-    backendUrl: CONFIG.backendUrl,
-    apiToken: CONFIG.apiToken,
-  });
-}
-
-// Helper to build fetch headers with optional auth
 function getAuthHeaders() {
   const headers = {};
-  if (CONFIG.apiToken) {
-    headers['Authorization'] = `Bearer ${CONFIG.apiToken}`;
+  const token = Config.getApiToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
   return headers;
 }
 
-// Check if URL matches a meeting platform
 function detectPlatform(url) {
   try {
     const urlObj = new URL(url);
-    for (const [domain, info] of Object.entries(CONFIG.platforms)) {
-      if (urlObj.hostname.includes(domain)) {
+    for (const [domain, info] of Object.entries(PLATFORMS)) {
+      if (urlObj.hostname === domain || urlObj.hostname.endsWith('.' + domain)) {
         return { domain, ...info };
       }
     }
@@ -77,149 +57,142 @@ function detectPlatform(url) {
   return null;
 }
 
-// Tab URL change listener
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.url || changeInfo.status === 'complete') {
     handleTabUpdate(tabId, tab);
   }
 });
 
-// Handle tab updates
 async function handleTabUpdate(tabId, tab) {
   const platform = detectPlatform(tab.url);
 
-  if (platform && !state.isRecording) {
+  if (platform && state.recordingState === RecordingState.IDLE) {
     console.log(`Detected ${platform.name} meeting:`, tab.url);
 
-    // Clear any existing auto-start timeout
     if (state.autoStartTimeout) {
       clearTimeout(state.autoStartTimeout);
     }
 
-    // Set up auto-start
     state.autoStartTimeout = setTimeout(async () => {
-      // Re-check if we should start (user might have navigated away)
       const currentTab = await chrome.tabs.get(tabId).catch(() => null);
       if (currentTab && detectPlatform(currentTab.url)) {
         await startRecording(tabId, currentTab, platform);
       }
-    }, CONFIG.autoStartDelay);
+    }, Config.getAutoStartDelay() * 1000);
 
-    // Update badge to show pending
     chrome.action.setBadgeText({ text: '...' });
     chrome.action.setBadgeBackgroundColor({ color: '#FFA500' });
 
-  } else if (!platform && state.isRecording && tabId === state.currentTabId) {
-    // User left the meeting page
+  } else if (!platform && state.recordingState === RecordingState.RECORDING && tabId === state.currentTabId) {
     console.log('User left meeting page, stopping recording');
     await stopRecording();
   }
 }
 
-// Tab closed listener
 chrome.tabs.onRemoved.addListener((tabId) => {
-  if (state.isRecording && tabId === state.currentTabId) {
+  if (state.recordingState === RecordingState.RECORDING && tabId === state.currentTabId) {
     console.log('Meeting tab closed, stopping recording');
     stopRecording();
   }
 });
 
-// Start recording
 async function startRecording(tabId, tab, platform) {
-  if (state.isRecording) {
-    console.log('Already recording');
+  if (state.recordingState !== RecordingState.IDLE) {
+    console.log('Cannot start: state is', state.recordingState);
     return;
   }
 
+  state.recordingState = RecordingState.STARTING;
   console.log('Starting recording for', platform.name);
 
-  state.isRecording = true;
-  state.currentTabId = tabId;
-  state.currentPlatform = platform;
-  state.recordingStartTime = Date.now();
-  state.meetingTitle = extractMeetingTitle(tab.title, platform);
-  state.meetingUrl = tab.url;
-  state.screenshots = [];
-  state.participants = [];
+  try {
+    await setupOffscreenDocument();
 
-  // Request initial participants from content script
-  chrome.tabs.sendMessage(tabId, { type: 'GET_PARTICIPANTS' })
-    .then((response) => {
-      if (response?.participants) {
-        state.participants = response.participants;
-        console.log('Initial participants:', state.participants);
-      }
-    })
-    .catch(() => {});
+    const streamId = await chrome.tabCapture.getMediaStreamId({
+      targetTabId: tabId,
+    });
 
-  // Update badge
-  chrome.action.setBadgeText({ text: 'REC' });
-  chrome.action.setBadgeBackgroundColor({ color: '#FF0000' });
+    const meetingTitle = extractMeetingTitle(tab.title, platform);
 
-  // Create offscreen document for recording
-  await setupOffscreenDocument();
+    await chrome.runtime.sendMessage({
+      type: 'START_RECORDING',
+      target: 'offscreen',
+      data: {
+        streamId,
+        tabId,
+        meetingTitle,
+      },
+    });
 
-  // Start capturing tab audio
-  const streamId = await chrome.tabCapture.getMediaStreamId({
-    targetTabId: tabId,
-  });
+    // All setup succeeded — commit state atomically
+    state.currentTabId = tabId;
+    state.currentPlatform = platform;
+    state.meetingTitle = meetingTitle;
+    state.meetingUrl = tab.url;
+    state.screenshots = [];
+    state.participants = [];
+    state.recordingStartTime = Date.now();
+    state.recordingState = RecordingState.RECORDING;
 
-  // Send to offscreen document to start recording
-  await chrome.runtime.sendMessage({
-    type: 'START_RECORDING',
-    target: 'offscreen',
-    data: {
-      streamId,
-      tabId,
-      meetingTitle: state.meetingTitle,
-    },
-  });
+    chrome.action.setBadgeText({ text: 'REC' });
+    chrome.action.setBadgeBackgroundColor({ color: '#FF0000' });
 
-  // Show notification
-  chrome.notifications.create({
-    type: 'basic',
-    iconUrl: 'icons/icon128.png',
-    title: 'MeetScribe',
-    message: `Enregistrement démarré: ${state.meetingTitle}`,
-  });
+    chrome.tabs.sendMessage(tabId, { type: 'GET_PARTICIPANTS' })
+      .then((response) => {
+        if (response?.participants) {
+          state.participants = response.participants;
+          console.log('Initial participants:', state.participants);
+        }
+      })
+      .catch(() => {});
+
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'icons/icon128.png',
+      title: 'MeetScribe',
+      message: `Enregistrement démarré: ${state.meetingTitle}`,
+    });
+  } catch (error) {
+    console.error('Failed to start recording:', error);
+    state.recordingState = RecordingState.IDLE;
+    chrome.action.setBadgeText({ text: '' });
+    await chrome.offscreen.closeDocument().catch(() => {});
+  }
 }
 
-// Stop recording
 async function stopRecording() {
-  if (!state.isRecording) {
-    console.log('Not recording');
+  if (state.recordingState !== RecordingState.RECORDING) {
+    console.log('Cannot stop: state is', state.recordingState);
     return;
   }
 
+  state.recordingState = RecordingState.STOPPING;
   console.log('Stopping recording');
 
-  // Tell offscreen document to stop and get the recordings
-  const response = await chrome.runtime.sendMessage({
-    type: 'STOP_RECORDING',
-    target: 'offscreen',
-  });
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: 'STOP_RECORDING',
+      target: 'offscreen',
+    });
 
-  // Clear badge
-  chrome.action.setBadgeText({ text: '' });
+    const duration = (Date.now() - state.recordingStartTime) / 1000;
 
-  const duration = (Date.now() - state.recordingStartTime) / 1000;
+    if (response && response.micBlob && response.tabBlob) {
+      await uploadRecording(response.micBlob, response.tabBlob, duration);
+    }
+  } catch (error) {
+    console.error('Error during stop recording:', error);
+  } finally {
+    state.recordingState = RecordingState.IDLE;
+    state.currentTabId = null;
+    state.currentPlatform = null;
+    state.recordingStartTime = null;
 
-  // Upload to backend
-  if (response && response.micBlob && response.tabBlob) {
-    await uploadRecording(response.micBlob, response.tabBlob, duration);
+    chrome.action.setBadgeText({ text: '' });
+    await chrome.offscreen.closeDocument().catch(() => {});
   }
-
-  // Reset state
-  state.isRecording = false;
-  state.currentTabId = null;
-  state.currentPlatform = null;
-  state.recordingStartTime = null;
-
-  // Close offscreen document
-  await chrome.offscreen.closeDocument().catch(() => {});
 }
 
-// Upload recording to backend
 async function uploadRecording(micBlob, tabBlob, duration) {
   console.log('Uploading recording to backend...');
 
@@ -236,7 +209,7 @@ async function uploadRecording(micBlob, tabBlob, duration) {
   }));
 
   try {
-    const response = await fetch(`${CONFIG.backendUrl}/api/upload`, {
+    const response = await fetch(`${Config.getApiUrl()}/api/upload`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: formData,
@@ -267,16 +240,13 @@ async function uploadRecording(micBlob, tabBlob, duration) {
   }
 }
 
-// Extract meeting title from tab title
 function extractMeetingTitle(tabTitle, platform) {
-  // Remove common suffixes
   let title = tabTitle
     .replace(' - Google Meet', '')
     .replace(' | Microsoft Teams', '')
     .replace(' - Zoom', '')
     .trim();
 
-  // Default title if empty
   if (!title || title === 'Meet') {
     title = `${platform.name} - ${new Date().toLocaleDateString('fr-FR')}`;
   }
@@ -284,7 +254,6 @@ function extractMeetingTitle(tabTitle, platform) {
   return title;
 }
 
-// Setup offscreen document for audio capture
 async function setupOffscreenDocument() {
   const existingContexts = await chrome.runtime.getContexts({
     contextTypes: ['OFFSCREEN_DOCUMENT'],
@@ -301,28 +270,28 @@ async function setupOffscreenDocument() {
   });
 }
 
-// Handle messages from popup, offscreen, and content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  // Handle participant updates from content script
   if (message.type === 'PARTICIPANTS_UPDATE') {
-    handleParticipantsUpdate(message.data);
-    sendResponse({ success: true });
+    if (sender.tab?.id && sender.tab.id === state.currentTabId) {
+      handleParticipantsUpdate(message.data);
+      sendResponse({ success: true });
+    } else {
+      sendResponse({ error: 'Ignored: not from active tab' });
+    }
     return true;
   }
 
   if (message.target === 'service-worker') {
     handleMessage(message, sendResponse);
-    return true; // Keep channel open for async response
+    return true;
   }
 });
 
-// Handle participant updates from content script
 function handleParticipantsUpdate(data) {
-  if (!state.isRecording) return;
+  if (state.recordingState !== RecordingState.RECORDING) return;
 
   state.participants = data.participants || [];
 
-  // Update meeting title if we got a better one
   if (data.meetingTitle && data.meetingTitle !== 'Meet') {
     state.meetingTitle = data.meetingTitle;
   }
@@ -334,7 +303,7 @@ async function handleMessage(message, sendResponse) {
   switch (message.type) {
     case 'GET_STATE':
       sendResponse({
-        isRecording: state.isRecording,
+        isRecording: state.recordingState === RecordingState.RECORDING,
         platform: state.currentPlatform,
         startTime: state.recordingStartTime,
         meetingTitle: state.meetingTitle,
@@ -344,16 +313,16 @@ async function handleMessage(message, sendResponse) {
       break;
 
     case 'TOGGLE_RECORDING':
-      if (state.isRecording) {
+      if (state.recordingState === RecordingState.RECORDING) {
         await stopRecording();
-      } else {
+      } else if (state.recordingState === RecordingState.IDLE) {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         const platform = detectPlatform(tab.url);
         if (platform) {
           await startRecording(tab.id, tab, platform);
         }
       }
-      sendResponse({ isRecording: state.isRecording });
+      sendResponse({ isRecording: state.recordingState === RecordingState.RECORDING });
       break;
 
     case 'TAKE_SCREENSHOT':
@@ -362,9 +331,8 @@ async function handleMessage(message, sendResponse) {
       break;
 
     case 'UPDATE_CONFIG':
-      if (message.data.backendUrl) {
-        CONFIG.backendUrl = message.data.backendUrl;
-        await saveConfig();
+      if (message.data) {
+        await Config.saveConfig(message.data);
       }
       sendResponse({ success: true });
       break;
@@ -374,9 +342,8 @@ async function handleMessage(message, sendResponse) {
   }
 }
 
-// Take screenshot of current tab
 async function takeScreenshot() {
-  if (!state.isRecording || !state.currentTabId) {
+  if (state.recordingState !== RecordingState.RECORDING || !state.currentTabId) {
     console.log('Cannot take screenshot: not recording');
     return;
   }
@@ -391,10 +358,12 @@ async function takeScreenshot() {
       dataUrl,
     });
 
-    // Update badge to show screenshot count
+    if (state.screenshots.length > Config.getMaxScreenshots()) {
+      state.screenshots.shift();
+    }
+
     chrome.action.setBadgeText({ text: `${state.screenshots.length}` });
 
-    // Flash effect (via content script)
     chrome.tabs.sendMessage(state.currentTabId, { type: 'SCREENSHOT_FLASH' }).catch(() => {});
 
     console.log(`Screenshot taken (${state.screenshots.length} total)`);
@@ -403,7 +372,6 @@ async function takeScreenshot() {
   }
 }
 
-// Handle keyboard commands
 chrome.commands.onCommand.addListener((command) => {
   switch (command) {
     case 'take-screenshot':

@@ -281,26 +281,26 @@
     const saveBtn = document.getElementById('save-btn');
     const messageEl = document.getElementById('message');
 
-    // Load saved config
-    chrome.storage.local.get(['backendUrl', 'apiToken', 'autoStartDelay', 'speakerName'], (config) => {
-      backendUrl.value = config.backendUrl || 'http://192.168.1.19:8888';
-      apiToken.value = config.apiToken || '';
-      autoStartDelay.value = config.autoStartDelay || 5;
-      speakerName.value = config.speakerName || 'Dino';
+    // Load saved config (unified keys)
+    chrome.storage.local.get(['api_url', 'api_token', 'auto_start_delay', 'speaker_name'], (config) => {
+      backendUrl.value = config.api_url || 'http://localhost:8090';
+      apiToken.value = config.api_token || '';
+      autoStartDelay.value = config.auto_start_delay || 5;
+      speakerName.value = config.speaker_name || 'Moi';
     });
 
-    // Save config
+    // Save config (unified keys)
     saveBtn.addEventListener('click', async () => {
       const config = {
-        backendUrl: backendUrl.value,
-        apiToken: apiToken.value || null,
-        autoStartDelay: parseInt(autoStartDelay.value, 10),
-        speakerName: speakerName.value,
+        api_url: backendUrl.value,
+        api_token: apiToken.value || '',
+        auto_start_delay: parseInt(autoStartDelay.value, 10),
+        speaker_name: speakerName.value,
       };
 
       await chrome.storage.local.set(config);
 
-      // Notify service worker
+      // Notify service worker to reload config
       await chrome.runtime.sendMessage({
         type: 'UPDATE_CONFIG',
         target: 'service-worker',

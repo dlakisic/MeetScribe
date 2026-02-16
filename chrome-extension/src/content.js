@@ -1,18 +1,8 @@
-/**
- * MeetScribe Content Script
- * Extracts participant names and meeting info from the page
- */
-
-// Platform-specific selectors
 const SELECTORS = {
   'meet.google.com': {
-    // Participant names in video tiles
     participantNames: '[data-self-name]',
-    // Names in the participant list panel
     participantList: '[role="listitem"] [data-participant-id]',
-    // Meeting title from the page
     meetingTitle: '[data-meeting-title]',
-    // Self name
     selfName: '[data-self-name="true"]',
   },
   'zoom.us': {
@@ -31,22 +21,19 @@ let currentPlatform = null;
 let participantsCache = new Set();
 let observer = null;
 
-// Detect platform
 function detectPlatform() {
   const hostname = window.location.hostname;
   for (const domain of Object.keys(SELECTORS)) {
-    if (hostname.includes(domain)) {
+    if (hostname === domain || hostname.endsWith('.' + domain)) {
       return domain;
     }
   }
   return null;
 }
 
-// Extract participants from Google Meet
 function extractGoogleMeetParticipants() {
   const participants = new Set();
 
-  // Method 1: Video tile names (most reliable)
   document.querySelectorAll('[data-self-name]').forEach((el) => {
     const name = el.textContent?.trim();
     if (name && name.length > 0) {
@@ -54,9 +41,7 @@ function extractGoogleMeetParticipants() {
     }
   });
 
-  // Method 2: Participant list (if panel is open)
   document.querySelectorAll('[role="listitem"]').forEach((el) => {
-    // Look for the name element within the list item
     const nameEl = el.querySelector('[data-participant-id]');
     if (nameEl) {
       const name = nameEl.textContent?.trim();
@@ -66,11 +51,9 @@ function extractGoogleMeetParticipants() {
     }
   });
 
-  // Method 3: aria-label on video containers (e.g., "Name's camera")
   document.querySelectorAll('[aria-label*="camera"]').forEach((el) => {
     const label = el.getAttribute('aria-label');
     if (label) {
-      // Extract name from "Name's camera" pattern
       const match = label.match(/^(.+?)(?:'s|) camera/i);
       if (match) {
         participants.add(match[1].trim());
@@ -81,7 +64,6 @@ function extractGoogleMeetParticipants() {
   return Array.from(participants);
 }
 
-// Extract participants from Zoom
 function extractZoomParticipants() {
   const participants = new Set();
 
@@ -95,7 +77,6 @@ function extractZoomParticipants() {
   return Array.from(participants);
 }
 
-// Extract participants from Teams
 function extractTeamsParticipants() {
   const participants = new Set();
 
@@ -109,7 +90,6 @@ function extractTeamsParticipants() {
   return Array.from(participants);
 }
 
-// Main extraction function
 function extractParticipants() {
   switch (currentPlatform) {
     case 'meet.google.com':
@@ -123,18 +103,14 @@ function extractParticipants() {
   }
 }
 
-// Extract meeting title
 function extractMeetingTitle() {
   if (currentPlatform === 'meet.google.com') {
-    // Try multiple methods for Google Meet
     const titleEl = document.querySelector('[data-meeting-title]');
     if (titleEl) return titleEl.textContent?.trim();
 
-    // From page title
     const pageTitle = document.title.replace(' - Google Meet', '').trim();
     if (pageTitle && pageTitle !== 'Meet') return pageTitle;
 
-    // From URL (meeting code)
     const match = window.location.pathname.match(/\/([a-z]{3}-[a-z]{4}-[a-z]{3})/);
     if (match) return `Meeting ${match[1]}`;
   }
@@ -142,7 +118,6 @@ function extractMeetingTitle() {
   return document.title;
 }
 
-// Send participants to service worker
 function sendParticipants() {
   const participants = extractParticipants();
   const newParticipants = participants.filter((p) => !participantsCache.has(p));
@@ -159,22 +134,18 @@ function sendParticipants() {
         platform: currentPlatform,
         url: window.location.href,
       },
-    }).catch(() => {
-      // Service worker might not be ready
-    });
+    }).catch(() => {});
 
     console.log('[MeetScribe] Participants:', participants);
   }
 }
 
-// Set up mutation observer to detect participant changes
 function setupObserver() {
   if (observer) {
     observer.disconnect();
   }
 
   observer = new MutationObserver((mutations) => {
-    // Debounce updates
     clearTimeout(window._meetscribeDebounce);
     window._meetscribeDebounce = setTimeout(sendParticipants, 500);
   });
@@ -186,7 +157,6 @@ function setupObserver() {
   });
 }
 
-// Handle screenshot flash effect
 function flashScreen() {
   const flash = document.createElement('div');
   flash.style.cssText = `
@@ -209,7 +179,6 @@ function flashScreen() {
   });
 }
 
-// Listen for messages from service worker
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.type) {
     case 'GET_PARTICIPANTS':
@@ -230,7 +199,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
-// Initialize
 function init() {
   currentPlatform = detectPlatform();
 
@@ -241,17 +209,14 @@ function init() {
 
   console.log('[MeetScribe] Detected platform:', currentPlatform);
 
-  // Initial extraction after page settles
   setTimeout(() => {
     sendParticipants();
     setupObserver();
   }, 2000);
 
-  // Periodic extraction (backup)
   setInterval(sendParticipants, 10000);
 }
 
-// Wait for DOM to be ready
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
 } else {

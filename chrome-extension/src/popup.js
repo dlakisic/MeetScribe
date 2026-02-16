@@ -1,7 +1,3 @@
-/**
- * MeetScribe Popup
- */
-
 const statusText = document.getElementById('status-text');
 const backendStatus = document.getElementById('backend-status');
 const durationDisplay = document.getElementById('duration-display');
@@ -15,23 +11,19 @@ const screenshotBtn = document.getElementById('screenshot-btn');
 
 let updateInterval = null;
 
-// Initialize
 document.addEventListener('DOMContentLoaded', async () => {
   await updateState();
   await checkBackend();
 
-  // Update state every second
   updateInterval = setInterval(updateState, 1000);
 });
 
-// Clean up on close
 window.addEventListener('unload', () => {
   if (updateInterval) {
     clearInterval(updateInterval);
   }
 });
 
-// Update UI from service worker state
 async function updateState() {
   try {
     const response = await chrome.runtime.sendMessage({
@@ -54,11 +46,10 @@ async function updateState() {
       meetingInfo.classList.remove('hidden');
       meetingTitle.textContent = response.meetingTitle || 'Meeting';
 
-      if (response.currentPlatform) {
-        meetingPlatform.textContent = response.currentPlatform;
+      if (response.platform) {
+        meetingPlatform.textContent = response.platform.name || response.platform;
       }
 
-      // Show participants
       if (response.participants && response.participants.length > 0) {
         meetingParticipants.textContent = response.participants.join(', ');
         meetingParticipants.classList.remove('hidden');
@@ -88,7 +79,6 @@ async function updateState() {
   }
 }
 
-// Open Dashboard
 const openDashboardBtn = document.getElementById('open-dashboard');
 if (openDashboardBtn) {
   openDashboardBtn.addEventListener('click', () => {
@@ -96,11 +86,9 @@ if (openDashboardBtn) {
   });
 }
 
-// Check backend connectivity
 async function checkBackend() {
   try {
-    // Use sync storage and correct key (api_url) to match main.js
-    const config = await chrome.storage.sync.get(['api_url']);
+    const config = await chrome.storage.local.get(['api_url']);
     const backendUrl = config.api_url || 'http://localhost:8090';
 
     const response = await fetch(`${backendUrl}/health`, {
@@ -123,7 +111,6 @@ async function checkBackend() {
   }
 }
 
-// Toggle recording
 toggleBtn.addEventListener('click', async () => {
   toggleBtn.disabled = true;
 
@@ -140,7 +127,6 @@ toggleBtn.addEventListener('click', async () => {
   toggleBtn.disabled = false;
 });
 
-// Take screenshot
 screenshotBtn.addEventListener('click', async () => {
   screenshotBtn.disabled = true;
 

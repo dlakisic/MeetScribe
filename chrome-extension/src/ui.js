@@ -1,4 +1,9 @@
-// --- Speaker Color Map ---
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
 const speakerColorMap = new Map();
 let speakerColorIndex = 0;
 
@@ -14,8 +19,6 @@ export function resetSpeakerColors() {
     speakerColorMap.clear();
     speakerColorIndex = 0;
 }
-
-// --- Rendering ---
 
 export function renderMeetingList(meetings, selectedId, onSelect) {
     const meetingList = document.getElementById('meeting-list');
@@ -36,11 +39,11 @@ export function renderMeetingList(meetings, selectedId, onSelect) {
         const date = new Date(meeting.date).toLocaleDateString();
 
         el.innerHTML = `
-      <div class="meeting-date">${date}</div>
-      <div class="meeting-title">${meeting.title}</div>
+      <div class="meeting-date">${escapeHtml(date)}</div>
+      <div class="meeting-title">${escapeHtml(meeting.title)}</div>
       <div class="meeting-meta">
         <span>${meeting.duration ? Math.round(meeting.duration / 60) + ' min' : '--'}</span>
-        <span class="status-badge ${meeting.status}">${meeting.status}</span>
+        <span class="status-badge ${escapeHtml(meeting.status)}">${escapeHtml(meeting.status)}</span>
       </div>
     `;
         meetingList.appendChild(el);
@@ -69,7 +72,6 @@ export function renderTranscript(transcriptData, onSeek, onTextChange, onRename)
         const minutes = Math.floor(startTime / 60);
         const seconds = Math.floor(startTime % 60).toString().padStart(2, '0');
 
-        // Store times for audio sync
         el.dataset.startTime = startTime;
         el.dataset.endTime = endTime;
 
@@ -79,17 +81,15 @@ export function renderTranscript(transcriptData, onSeek, onTextChange, onRename)
         el.innerHTML = `
       <div class="segment-time seekable" data-seek="${startTime}">${minutes}:${seconds}</div>
       <div class="segment-content">
-        <div class="segment-speaker ${colorClass}">${seg.speaker}</div>
-        <div class="segment-text" contenteditable="true" data-segment-id="${seg.id}">${seg.text}</div>
+        <div class="segment-speaker ${colorClass}">${escapeHtml(seg.speaker)}</div>
+        <div class="segment-text" contenteditable="true" data-segment-id="${seg.id}">${escapeHtml(seg.text)}</div>
       </div>
     `;
 
-        // Click timestamp to seek audio
         el.querySelector('.segment-time').addEventListener('click', () => {
             onSeek(startTime);
         });
 
-        // Save on blur
         const textEl = el.querySelector('.segment-text');
         textEl.addEventListener('blur', () => {
             const newText = textEl.textContent.trim();
@@ -98,7 +98,6 @@ export function renderTranscript(transcriptData, onSeek, onTextChange, onRename)
             }
         });
 
-        // Rename speaker on click
         const speakerEl = el.querySelector('.segment-speaker');
         speakerEl.style.cursor = 'pointer';
         speakerEl.title = 'Cliquer pour renommer ce speaker';
@@ -130,13 +129,12 @@ export function renderInsights(extractedData) {
         if (data.summary) {
             summaryText.textContent = data.summary.abstract;
 
-            // Topics
             const topicsCard = document.getElementById('topics-card');
             const topicsList = document.getElementById('topics-list');
             if (data.summary.topics && data.summary.topics.length > 0) {
                 topicsCard.style.display = 'block';
                 topicsList.innerHTML = data.summary.topics.map(t =>
-                    `<span class="topic-tag">${t}</span>`
+                    `<span class="topic-tag">${escapeHtml(t)}</span>`
                 ).join(' ');
             } else {
                 topicsCard.style.display = 'none';
@@ -150,7 +148,7 @@ export function renderInsights(extractedData) {
                 el.innerHTML = `
           <input type="checkbox" class="checkbox" ${action.status === 'done' ? 'checked' : ''}>
           <div class="summary-text">
-            <strong>${action.owner || "Quelqu'un"}</strong>: ${action.description}
+            <strong>${escapeHtml(action.owner || "Quelqu'un")}</strong>: ${escapeHtml(action.description)}
           </div>
         `;
                 actionsList.appendChild(el);
@@ -192,7 +190,6 @@ export function highlightCurrentSegment(currentTime) {
         }
     });
 
-    // Auto-scroll to active segment
     if (activeEl) {
         const container = transcriptContainer;
         const elTop = activeEl.offsetTop - container.offsetTop;

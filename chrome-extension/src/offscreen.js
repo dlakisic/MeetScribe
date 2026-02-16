@@ -1,8 +1,3 @@
-/**
- * MeetScribe Offscreen Document
- * Handles actual audio capture using MediaRecorder API
- */
-
 let micRecorder = null;
 let tabRecorder = null;
 let micChunks = [];
@@ -10,7 +5,6 @@ let tabChunks = [];
 let micStream = null;
 let tabStream = null;
 
-// Listen for messages from service worker
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.target !== 'offscreen') {
     return;
@@ -34,11 +28,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 async function startRecording({ streamId, tabId, meetingTitle }) {
   console.log('Offscreen: Starting recording');
 
-  // Reset chunks
   micChunks = [];
   tabChunks = [];
 
-  // Get microphone stream
   try {
     micStream = await navigator.mediaDevices.getUserMedia({
       audio: {
@@ -54,7 +46,6 @@ async function startRecording({ streamId, tabId, meetingTitle }) {
     throw new Error('Microphone access denied');
   }
 
-  // Get tab audio stream using the streamId from tabCapture
   try {
     tabStream = await navigator.mediaDevices.getUserMedia({
       audio: {
@@ -68,12 +59,10 @@ async function startRecording({ streamId, tabId, meetingTitle }) {
     console.log('Tab audio stream acquired');
   } catch (error) {
     console.error('Failed to get tab audio:', error);
-    // Clean up mic stream
     micStream?.getTracks().forEach((t) => t.stop());
     throw new Error('Tab audio capture failed');
   }
 
-  // Create MediaRecorders
   const mimeType = 'audio/webm;codecs=opus';
 
   micRecorder = new MediaRecorder(micStream, { mimeType });
@@ -94,7 +83,6 @@ async function startRecording({ streamId, tabId, meetingTitle }) {
   micRecorder.onerror = (e) => console.error('Mic recorder error:', e);
   tabRecorder.onerror = (e) => console.error('Tab recorder error:', e);
 
-  // Start recording with timeslice for periodic data
   micRecorder.start(1000);
   tabRecorder.start(1000);
 
@@ -110,18 +98,15 @@ async function stopRecording() {
 
     const checkComplete = () => {
       if (micStopped && tabStopped) {
-        // Create blobs from chunks
         const micBlob = new Blob(micChunks, { type: 'audio/webm' });
         const tabBlob = new Blob(tabChunks, { type: 'audio/webm' });
 
         console.log(`Mic recording: ${micBlob.size} bytes`);
         console.log(`Tab recording: ${tabBlob.size} bytes`);
 
-        // Stop streams
         micStream?.getTracks().forEach((t) => t.stop());
         tabStream?.getTracks().forEach((t) => t.stop());
 
-        // Reset
         micRecorder = null;
         tabRecorder = null;
         micStream = null;
@@ -151,10 +136,8 @@ async function stopRecording() {
       tabStopped = true;
     }
 
-    // Immediate check in case both were already stopped
     checkComplete();
 
-    // Timeout safety
     setTimeout(() => {
       if (!micStopped || !tabStopped) {
         reject(new Error('Recording stop timeout'));

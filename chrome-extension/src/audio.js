@@ -68,13 +68,11 @@ export function loadAudioForMeeting(meetingId, hasAudio) {
         return;
     }
 
-    // Build audio URL with auth
     const audioUrl = `${getApiUrl()}/api/meetings/${meetingId}/audio`;
-    audio.src = audioUrl; // Default src
+    audio.src = audioUrl;
     playBtn.innerHTML = '&#9654;';
     playerBar.style.display = 'flex';
 
-    // Set auth header via fetch for the audio element
     fetchAudioBlob(audioUrl)
         .then(blob => {
             audio.src = URL.createObjectURL(blob);

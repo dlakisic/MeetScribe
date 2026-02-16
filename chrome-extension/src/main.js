@@ -1,70 +1,46 @@
 import * as API from './api.js';
 import * as Audio from './audio.js';
 import * as Config from './config.js';
+import { copyTranscript, exportTranscript } from './export.js';
+import { startStatusPolling } from './job-poller.js';
+import { setupSettingsHandlers } from './settings.js';
+import state from './state.js';
 import * as UI from './ui.js';
 
-// --- State ---
-const state = {
-    selectedMeetingId: null,
-    transcriptData: null,
-    meetingData: null,
-    meetings: [],
-    pollTimers: new Map(),
-};
-
-// --- Elements ---
 const uploadBtn = document.getElementById('upload-btn');
 const fileInput = document.getElementById('file-upload');
 const searchInput = document.getElementById('search-input');
 const currentTitle = document.getElementById('current-title');
 
-// Settings Elements
-const settingsBtn = document.getElementById('settings-btn');
-const settingsModal = document.getElementById('settings-modal');
-const closeSettings = document.getElementById('close-settings');
-const saveSettingsBtn = document.getElementById('save-settings-btn');
-const apiUrlInput = document.getElementById('api-url-input');
-const apiTokenInput = document.getElementById('api-token-input');
-
-// --- Initialization ---
 document.addEventListener('DOMContentLoaded', async () => {
     await Config.loadConfig();
     loadMeetings();
 
-    // Upload handlers
     if (uploadBtn && fileInput) {
         uploadBtn.addEventListener('click', () => fileInput.click());
         fileInput.addEventListener('change', handleFileUpload);
     }
 
-    // Settings handlers
-    setupSettingsHandlers();
+    setupSettingsHandlers(loadMeetings);
 
-    // Search
     if (searchInput) {
         searchInput.addEventListener('input', () => filterMeetings(searchInput.value));
     }
 
-    // Tabs
     document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', () => switchTab(tab.dataset.tab));
     });
 
-    // Toolbar buttons
     document.getElementById('btn-copy')?.addEventListener('click', copyTranscript);
     document.getElementById('btn-export')?.addEventListener('click', exportTranscript);
     document.getElementById('btn-delete')?.addEventListener('click', handleDeleteMeeting);
 
-    // Audio player
     Audio.setupAudioPlayer((time) => {
         UI.highlightCurrentSegment(time);
     });
 
-    // Editable title
     setupTitleEditing();
 });
-
-// --- Logic ---
 
 async function loadMeetings() {
     const meetingList = document.getElementById('meeting-list');
@@ -89,10 +65,9 @@ function filterMeetings(query) {
 }
 
 async function selectMeeting(id, element) {
-    Audio.stopAudio(); // Stop previous audio
+    Audio.stopAudio();
 
     state.selectedMeetingId = id;
-    // Update active class in list
     document.querySelectorAll('.meeting-item').forEach(el => el.classList.remove('active'));
     if (element) element.classList.add('active');
 
@@ -106,7 +81,6 @@ async function selectMeeting(id, element) {
     state.meetingData = meeting;
     state.transcriptData = transcript;
 
-    // Editable title
     currentTitle.textContent = meeting.title;
     currentTitle.contentEditable = 'true';
 
@@ -114,10 +88,8 @@ async function selectMeeting(id, element) {
     document.getElementById('current-platform').textContent = meeting.platform || 'Inconnu';
     document.getElementById('current-duration').textContent = meeting.duration ? Math.round(meeting.duration / 60) + ' min' : '--';
 
-    // Show toolbar
     document.getElementById('transcript-toolbar').style.display = 'flex';
 
-    // Switch to transcript tab
     switchTab('transcript');
 
     UI.resetSpeakerColors();
@@ -128,11 +100,8 @@ async function selectMeeting(id, element) {
     );
     UI.renderInsights(meeting.extracted_data);
 
-    // Load audio player
     Audio.loadAudioForMeeting(meeting.id, !!meeting.audio_file);
 }
-
-// --- Handlers ---
 
 async function handleSegmentTextChange(segId, newText, seg) {
     if (segId) {
@@ -145,7 +114,6 @@ async function handleSpeakerRename(speakerName) {
     const newName = prompt(`Renommer "${speakerName}" en :`, speakerName);
     if (newName && newName !== speakerName) {
         await API.saveSpeakerRename(state.selectedMeetingId, speakerName, newName);
-        // Refresh to update all segments
         const activeEl = document.querySelector(`.meeting-item[data-id="${state.selectedMeetingId}"]`);
         selectMeeting(state.selectedMeetingId, activeEl);
     }
@@ -176,7 +144,7 @@ async function handleFileUpload(event) {
         await loadMeetings();
 
         if (data.job_id) {
-            startStatusPolling(data.job_id, data.meeting_id);
+            startStatusPolling(data.job_id, data.meeting_id, { loadMeetings, selectMeeting });
         }
 
     } catch (err) {
@@ -186,39 +154,6 @@ async function handleFileUpload(event) {
         uploadBtn.textContent = 'Importer un fichier';
         uploadBtn.disabled = false;
     }
-}
-
-function startStatusPolling(jobId, meetingId) {
-    uploadBtn.textContent = 'Transcription...';
-    uploadBtn.disabled = true;
-
-    const timer = setInterval(async () => {
-        try {
-            const job = await API.fetchJobStatus(jobId);
-
-            if (job.status === 'completed') {
-                clearInterval(timer);
-                state.pollTimers.delete(jobId);
-                uploadBtn.textContent = 'Importer un fichier';
-                uploadBtn.disabled = false;
-                await loadMeetings();
-
-                const el = document.querySelector(`.meeting-item[data-id="${meetingId}"]`);
-                if (el) selectMeeting(meetingId, el);
-            } else if (job.status === 'failed') {
-                clearInterval(timer);
-                state.pollTimers.delete(jobId);
-                uploadBtn.textContent = 'Importer un fichier';
-                uploadBtn.disabled = false;
-                await loadMeetings();
-                alert('La transcription a échoué : ' + (job.error || 'erreur inconnue'));
-            }
-        } catch (err) {
-            console.error('Poll error:', err);
-        }
-    }, 5000);
-
-    state.pollTimers.set(jobId, timer);
 }
 
 async function handleDeleteMeeting() {
@@ -246,7 +181,6 @@ function setupTitleEditing() {
         if (newTitle && newTitle !== state.meetingData?.title) {
             await API.saveMeetingTitle(state.selectedMeetingId, newTitle);
             state.meetingData.title = newTitle;
-            // Update sidebar
             const sidebarItem = document.querySelector(`.meeting-item[data-id="${state.selectedMeetingId}"] .meeting-title`);
             if (sidebarItem) sidebarItem.textContent = newTitle;
         }
@@ -260,93 +194,10 @@ function setupTitleEditing() {
     });
 }
 
-function setupSettingsHandlers() {
-    if (!settingsBtn || !settingsModal) return;
-
-    settingsBtn.addEventListener('click', () => {
-        settingsModal.style.display = 'flex';
-        apiUrlInput.value = Config.getApiUrl();
-        apiTokenInput.value = Config.getApiToken();
-    });
-
-    closeSettings.addEventListener('click', () => {
-        settingsModal.style.display = 'none';
-    });
-
-    window.addEventListener('click', (event) => {
-        if (event.target == settingsModal) settingsModal.style.display = 'none';
-    });
-
-    saveSettingsBtn.addEventListener('click', () => {
-        const newUrl = apiUrlInput.value.trim().replace(/\/$/, "");
-        const newToken = apiTokenInput.value.trim();
-        if (newUrl) {
-            Config.updateConfig(newUrl, newToken);
-            chrome.storage.sync.set({ api_url: newUrl, api_token: newToken }, () => {
-                settingsModal.style.display = 'none';
-                loadMeetings();
-            });
-        }
-    });
-}
-
 function switchTab(tabName) {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
 
     document.querySelector(`.tab[data-tab="${tabName}"]`)?.classList.add('active');
     document.getElementById(`tab-${tabName}`)?.classList.add('active');
-}
-
-// --- Utils ---
-
-function getFormattedText() {
-    if (!state.transcriptData || !state.transcriptData.segments) return '';
-
-    const segments = typeof state.transcriptData.segments === 'string'
-        ? JSON.parse(state.transcriptData.segments)
-        : state.transcriptData.segments;
-
-    const lines = segments.map(seg => {
-        const t = seg.start_time ?? seg.start ?? 0;
-        const m = Math.floor(t / 60);
-        const s = Math.floor(t % 60).toString().padStart(2, '0');
-        return `[${m}:${s}] ${seg.speaker}: ${seg.text}`;
-    });
-
-    let text = lines.join('\n');
-
-    if (state.meetingData?.extracted_data?.summary?.abstract) {
-        text += '\n\n--- Résumé ---\n' + state.meetingData.extracted_data.summary.abstract;
-    }
-
-    if (state.meetingData?.extracted_data?.action_items?.length > 0) {
-        text += '\n\n--- Actions ---\n';
-        state.meetingData.extracted_data.action_items.forEach(a => {
-            text += `- ${a.owner || '?'}: ${a.description}\n`;
-        });
-    }
-
-    return text;
-}
-
-function copyTranscript() {
-    const text = getFormattedText();
-    navigator.clipboard.writeText(text).then(() => {
-        const btn = document.getElementById('btn-copy');
-        btn.textContent = 'Copié !';
-        setTimeout(() => btn.textContent = 'Copier', 1500);
-    });
-}
-
-function exportTranscript() {
-    const text = getFormattedText();
-    const title = state.meetingData?.title || 'transcript';
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${title}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
 }
