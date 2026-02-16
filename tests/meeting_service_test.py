@@ -1,6 +1,6 @@
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -21,7 +21,7 @@ def mock_transcriber():
 
 @pytest.fixture
 def mock_job_store():
-    return MagicMock()
+    return AsyncMock()
 
 
 @pytest.fixture

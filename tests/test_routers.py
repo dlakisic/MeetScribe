@@ -4,6 +4,8 @@ from datetime import datetime
 
 import pytest
 
+from backend.app.routers.upload import _parse_date, _safe_filename
+
 
 @pytest.mark.asyncio
 async def test_root(client):
@@ -97,8 +99,12 @@ async def test_upload_no_files(client):
 async def test_get_job_status(client, test_app):
     """Test job status endpoint."""
     job_store = test_app.state.job_store
-    job_store.create_job("test-job", meeting_id=1)
-    job_store.update_status("test-job", "completed", result={"meeting_id": 1})
+    # Need a meeting first (FK constraint)
+    repo = test_app.state.meeting_service.repo
+    from datetime import datetime
+    mid = await repo.create(title="Test", date=datetime.now())
+    await job_store.create_job("test-job", meeting_id=mid)
+    await job_store.update_status("test-job", "completed", result={"meeting_id": mid})
 
     resp = await client.get("/api/status/test-job")
     assert resp.status_code == 200
@@ -133,3 +139,64 @@ async def test_update_segment(client, test_app):
     resp = await client.patch(f"/api/segments/{seg_id}", json={"text": "new text"})
     assert resp.status_code == 200
     assert resp.json()["ok"] is True
+
+
+# --- Sprint 1: Security tests ---
+
+
+class TestSafeFilename:
+    """Tests for path traversal prevention."""
+
+    def test_normal_filename(self):
+        assert _safe_filename("audio.webm") == "audio.webm"
+
+    def test_path_traversal_dotdot(self):
+        assert _safe_filename("../../etc/passwd") == "passwd"
+
+    def test_path_traversal_absolute(self):
+        assert _safe_filename("/etc/shadow") == "shadow"
+
+    def test_null_byte(self):
+        result = _safe_filename("file\0name.webm")
+        assert "\0" not in result
+
+    def test_backslash_traversal(self):
+        result = _safe_filename("..\\..\\windows\\system32\\config")
+        assert ".." not in result
+
+    def test_empty_filename(self):
+        assert _safe_filename("") == "unnamed"
+
+
+class TestParseDate:
+    """Tests for date validation."""
+
+    def test_valid_iso_date(self):
+        result = _parse_date("2026-01-15T10:30:00")
+        assert result.year == 2026
+        assert result.month == 1
+
+    def test_none_returns_now(self):
+        result = _parse_date(None)
+        assert isinstance(result, datetime)
+
+    def test_empty_returns_now(self):
+        result = _parse_date("")
+        assert isinstance(result, datetime)
+
+    def test_invalid_date_raises_400(self):
+        with pytest.raises(Exception) as exc_info:
+            _parse_date("not-a-date")
+        assert "400" in str(exc_info.value.status_code)
+
+
+@pytest.mark.asyncio
+async def test_upload_invalid_date(client):
+    """Upload with invalid date should return 400."""
+    resp = await client.post(
+        "/api/upload",
+        data={"metadata": '{"title": "Test", "date": "not-a-date"}'},
+        files={"mic_file": ("test.webm", b"fake audio", "audio/webm")},
+    )
+    assert resp.status_code == 400
+    assert "date" in resp.json()["detail"].lower()

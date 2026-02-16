@@ -78,7 +78,7 @@ async def test_app(test_config):
     await db.connect()
 
     repo = MeetingRepository(db)
-    job_store = JobStore()
+    job_store = JobStore(db)
     mock_transcriber = AsyncMock()
     mock_extraction = AsyncMock()
 
