@@ -1,1 +1,1 @@
-# MeetScribe Backend
+"""MeetScribe backend package."""

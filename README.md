@@ -132,3 +132,12 @@ meetscribe/
 └── infra/server/
     └── docker-compose.yml      # Deployment config
 ```
+
+## ⚖️ Licensing
+
+MeetScribe uses a dual-licensing model:
+
+- **AGPL-3.0 (Community)**: default license for this repository (see `LICENSE`)
+- **Commercial license**: available for closed-source/proprietary use (see `COMMERCIAL_LICENSE.md`)
+
+If you do not have a signed commercial agreement, your use is governed by `LICENSE` (AGPL-3.0).
