@@ -1,8 +1,10 @@
 import subprocess
 from pathlib import Path
 
+from .errors import AudioError, TranscriptionTimeoutError
 
-def convert_to_wav(input_path: Path, output_path: Path) -> None:
+
+def convert_to_wav(input_path: Path, output_path: Path, timeout: int = 300) -> None:
     """Convert audio file to WAV 16kHz mono using ffmpeg."""
     cmd = [
         "ffmpeg",
@@ -17,6 +19,9 @@ def convert_to_wav(input_path: Path, output_path: Path) -> None:
         "pcm_s16le",
         str(output_path),
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        raise TranscriptionTimeoutError(f"ffmpeg conversion timed out (>{timeout}s)")
     if result.returncode != 0:
-        raise RuntimeError(f"ffmpeg conversion failed: {result.stderr}")
+        raise AudioError(f"ffmpeg conversion failed: {result.stderr}")

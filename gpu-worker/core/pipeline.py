@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from pathlib import Path
 
 from .domain import TranscriptSegment
@@ -57,11 +58,19 @@ def format_transcript(segments: list[TranscriptSegment]) -> str:
 
 class MeetingPipeline:
     def __init__(
-        self, model_size: str = "large-v3", device: str = "cuda", language: str | None = None
+        self,
+        transcriber: WhisperTranscriber | None = None,
+        model_size: str = "large-v3",
+        device: str = "cuda",
+        language: str | None = None,
+        ffmpeg_timeout: int = 300,
+        diarize_timeout: int = 600,
     ):
-        self.transcriber = WhisperTranscriber(model_size, device, language=language)
+        self.transcriber = transcriber or WhisperTranscriber(model_size, device, language=language)
         self.model_size = model_size
         self.device = device
+        self.ffmpeg_timeout = ffmpeg_timeout
+        self.diarize_timeout = diarize_timeout
         self._diarizer = None
 
     def _get_diarizer(self):
@@ -85,7 +94,7 @@ class MeetingPipeline:
             from .diarizer import assign_speakers
 
             diarizer = self._get_diarizer()
-            turns = diarizer.diarize(audio_path)
+            turns = diarizer.diarize(audio_path, timeout=self.diarize_timeout)
             assign_speakers(segments, turns)
             speakers = set(s.speaker for s in segments)
             log.info(f"Diarization applied: {len(speakers)} speakers identified")
@@ -99,31 +108,43 @@ class MeetingPipeline:
         metadata: dict,
         output_path: Path,
     ) -> dict:
+        job_id = metadata.get("job_id", "?")
         local_speaker = metadata.get("local_speaker", "Dino")
         remote_speaker = metadata.get("remote_speaker", "Interlocuteur")
 
         has_mic = mic_path and mic_path.exists()
         has_tab = tab_path and tab_path.exists()
 
-        # Transcribe mic track (always tagged as local speaker)
+        log.info(f"[{job_id}] Starting pipeline (mic={has_mic}, tab={has_tab})")
+
+        timings = {}
+
         mic_segments = []
         if has_mic:
-            log.info(f"Transcribing microphone track as '{local_speaker}'")
-            mic_segments = self.transcriber.transcribe_file(mic_path, local_speaker)
+            log.info(f"[{job_id}] Transcribing microphone track as '{local_speaker}'")
+            t0 = time.monotonic()
+            mic_segments = self.transcriber.transcribe_file(
+                mic_path, local_speaker, ffmpeg_timeout=self.ffmpeg_timeout
+            )
+            timings["transcribe_mic"] = round(time.monotonic() - t0, 1)
+            log.info(f"[{job_id}] Mic transcription: {timings['transcribe_mic']}s")
 
-        # Transcribe tab track
         tab_segments = []
         if has_tab:
-            log.info(f"Transcribing tab audio track as '{remote_speaker}'")
-            tab_segments = self.transcriber.transcribe_file(tab_path, remote_speaker)
+            log.info(f"[{job_id}] Transcribing tab audio track as '{remote_speaker}'")
+            t0 = time.monotonic()
+            tab_segments = self.transcriber.transcribe_file(
+                tab_path, remote_speaker, ffmpeg_timeout=self.ffmpeg_timeout
+            )
+            timings["transcribe_tab"] = round(time.monotonic() - t0, 1)
+            log.info(f"[{job_id}] Tab transcription: {timings['transcribe_tab']}s")
 
-        # Speaker diarization
+        t0 = time.monotonic()
         if has_tab:
-            # Tab always gets diarization (multiple remote speakers possible)
             self._diarize_segments(tab_path, tab_segments)
         elif has_mic and not has_tab:
-            # Mic-only: diarize to distinguish speakers
             self._diarize_segments(mic_path, mic_segments)
+        timings["diarize"] = round(time.monotonic() - t0, 1)
 
         mic_offset = metadata.get("mic_start_offset", 0.0)
         tab_offset = metadata.get("tab_start_offset", 0.0)
@@ -134,7 +155,7 @@ class MeetingPipeline:
             mic_offset=mic_offset,
             tab_offset=tab_offset,
         )
-        log.info(f"Merged transcript: {len(merged)} segments")
+        log.info(f"[{job_id}] Merged transcript: {len(merged)} segments")
 
         result = {
             "meeting": {
@@ -152,6 +173,7 @@ class MeetingPipeline:
                 "tab_segments": len(tab_segments),
                 "device": self.device,
                 "model": self.model_size,
+                "timings": timings,
             },
         }
 
@@ -159,5 +181,5 @@ class MeetingPipeline:
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(result, f, ensure_ascii=False, indent=2)
 
-        log.info(f"Transcript saved to {output_path}")
+        log.info(f"[{job_id}] Transcript saved to {output_path}")
         return result

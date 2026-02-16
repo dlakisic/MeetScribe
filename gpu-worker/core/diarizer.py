@@ -1,9 +1,11 @@
 """Speaker diarization using pyannote-audio."""
 
+import concurrent.futures
 import os
 from pathlib import Path
 
 from .domain import TranscriptSegment
+from .errors import ModelError, TranscriptionTimeoutError
 from .logging import get_logger
 
 log = get_logger("diarizer")
@@ -31,13 +33,29 @@ class SpeakerDiarizer:
         self.pipeline.to(device)
         log.info("Diarization pipeline loaded")
 
-    def diarize(self, audio_path: Path) -> list[tuple[float, float, str]]:
-        """Run diarization on an audio file.
+    def diarize(self, audio_path: Path, timeout: int = 600) -> list[tuple[float, float, str]]:
+        """Run diarization on an audio file with timeout guard.
 
         Returns a list of (start, end, speaker_label) turns.
+        Note: ThreadPoolExecutor timeout doesn't kill the thread — the pipeline
+        continues in background but will complete naturally or on process restart.
         """
-        log.info(f"Running diarization on {audio_path.name}")
-        diarization = self.pipeline(str(audio_path))
+        log.info(f"Running diarization on {audio_path.name} (timeout={timeout}s)")
+
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        future = executor.submit(self.pipeline, str(audio_path))
+        try:
+            diarization = future.result(timeout=timeout)
+        except concurrent.futures.TimeoutError:
+            executor.shutdown(wait=False)
+            raise TranscriptionTimeoutError(
+                f"Diarization timed out (>{timeout}s) on {audio_path.name}"
+            )
+        except Exception as e:
+            executor.shutdown(wait=False)
+            raise ModelError(f"Diarization model error: {e}")
+        else:
+            executor.shutdown(wait=False)
 
         turns = []
         for turn, _, speaker in diarization.itertracks(yield_label=True):

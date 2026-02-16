@@ -1,1 +1,1 @@
-# GPU Worker module
+"""GPU worker package."""

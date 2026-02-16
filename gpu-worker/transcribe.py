@@ -10,7 +10,6 @@ from core.pipeline import MeetingPipeline
 from core.transcriber import WhisperTranscriber
 
 
-# Backward compatibility class
 class Transcriber(WhisperTranscriber):
     """Facade for WhisperTranscriber to maintain compatibility."""
 
@@ -25,9 +24,16 @@ def process_meeting(
     model_size: str = "large-v3",
     device: str = "cuda",
     language: str | None = None,
+    transcriber: WhisperTranscriber | None = None,
 ) -> dict:
-    """Facade for processing a meeting."""
-    pipeline = MeetingPipeline(model_size=model_size, device=device, language=language)
+    """Facade for processing a meeting.
+
+    If a transcriber is provided, reuses it (avoids reloading the model).
+    Otherwise creates a new one from model_size/device/language.
+    """
+    pipeline = MeetingPipeline(
+        transcriber=transcriber, model_size=model_size, device=device, language=language
+    )
     return pipeline.process(
         mic_path=mic_path,
         tab_path=tab_path,

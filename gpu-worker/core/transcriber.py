@@ -19,12 +19,13 @@ class WhisperTranscriber:
         self.device = device
         self.language = language  # None = auto-detect
 
-    def transcribe_file(self, audio_path: Path, speaker_label: str) -> list[TranscriptSegment]:
-        # Convert to WAV if needed
+    def transcribe_file(
+        self, audio_path: Path, speaker_label: str, ffmpeg_timeout: int = 300
+    ) -> list[TranscriptSegment]:
         if audio_path.suffix.lower() != ".wav":
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
                 wav_path = Path(tmp.name)
-            convert_to_wav(audio_path, wav_path)
+            convert_to_wav(audio_path, wav_path, timeout=ffmpeg_timeout)
         else:
             wav_path = audio_path
 
@@ -54,6 +55,5 @@ class WhisperTranscriber:
             return result
 
         finally:
-            # Cleanup temp file
             if wav_path != audio_path and wav_path.exists():
                 wav_path.unlink()
