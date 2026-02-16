@@ -3,10 +3,11 @@ from datetime import datetime
 from sqlmodel import desc, select
 
 from ..database import Database
+from ..interfaces import AbstractMeetingRepository
 from ..models import Meeting, Segment, Transcript
 
 
-class MeetingRepository:
+class MeetingRepository(AbstractMeetingRepository):
     """Repository for accessing meeting data via SQLModel."""
 
     UPDATABLE_FIELDS = {"title", "platform", "url", "duration"}
@@ -72,7 +73,6 @@ class MeetingRepository:
         """Save transcript and segments for a meeting."""
         async with self.db.session() as session:
             async with session.begin():
-                # Check if transcript exists
                 statement = select(Transcript).where(Transcript.meeting_id == meeting_id)
                 results = await session.exec(statement)
                 transcript = results.first()
@@ -82,20 +82,17 @@ class MeetingRepository:
                         meeting_id=meeting_id, full_text="", formatted="", stats={}
                     )
 
-                # Update transcript fields
                 transcript.full_text = " ".join(seg["text"] for seg in segments)
                 transcript.formatted = formatted
                 transcript.stats = stats
                 session.add(transcript)
 
-                # Delete existing segments (naive approach: delete all and recreate)
-                # In a real app we might want to be smarter, but this matches previous logic
+                # Replace all segments atomically to keep transcript and segments consistent.
                 stmt = select(Segment).where(Segment.meeting_id == meeting_id)
                 existing_segments = await session.exec(stmt)
                 for seg in existing_segments.all():
                     await session.delete(seg)
 
-                # Add new segments
                 for seg_data in segments:
                     segment = Segment(
                         meeting_id=meeting_id,
@@ -106,7 +103,6 @@ class MeetingRepository:
                     )
                     session.add(segment)
 
-                # Update meeting status
                 meeting = await session.get(Meeting, meeting_id)
                 if meeting:
                     meeting.status = "completed"
@@ -129,14 +125,12 @@ class MeetingRepository:
             if not transcript:
                 return None
 
-            # Load segments
             stmt_seg = (
                 select(Segment).where(Segment.meeting_id == meeting_id).order_by(Segment.start_time)
             )
             results_seg = await session.exec(stmt_seg)
             segments = results_seg.all()
 
-            # Format result to match previous dict structure
             result = transcript.model_dump()
             result["segments"] = [s.model_dump() for s in segments]
             return result
@@ -144,18 +138,10 @@ class MeetingRepository:
     async def list(self, limit: int = 50, offset: int = 0) -> list[dict]:
         """List all meetings."""
         async with self.db.session() as session:
-            # We want to join with Transcript to verify existence, like the LEFT JOIN before
-            # BUT SQLModel/SQLAlchemy async joins are verbose.
-            # For list, just fetching meetings is enough, the frontend checks details later.
-            # To simulate "has_transcript", we can do a naive check or eager load.
-            # Let's keep it simple: just list meetings for now, frontend will query details if needed.
-            # To match previous behavior helper "has_transcript":
-
             statement = select(Meeting).order_by(desc(Meeting.date)).offset(offset).limit(limit)
             results = await session.exec(statement)
             meetings = results.all()
 
-            # Convert to dicts
             return [m.model_dump() for m in meetings]
 
     async def update_segment_text(self, segment_id: int, text: str) -> bool:
@@ -171,7 +157,6 @@ class MeetingRepository:
 
     async def update_speaker(self, meeting_id: int, old_name: str, new_name: str) -> int:
         """Update all occurrences of a speaker name in a meeting."""
-        # We need to use exec with update statement
         from sqlmodel import update
 
         statement = (

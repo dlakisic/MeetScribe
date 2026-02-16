@@ -14,6 +14,7 @@ class GPUWorkerConfig:
     ssh_port: int = 22
     ssh_key_path: Path | None = None
     worker_port: int = 8001  # HTTP port on GPU machine
+    worker_token: str = ""  # Shared secret for X-Worker-Token auth
     work_dir: Path = Path("/tmp/meetscribe")
     model_size: str = "large-v3"
     timeout: int = 600  # Max seconds to wait for transcription
@@ -45,7 +46,6 @@ class SmartPlugConfig:
 class Config:
     """Main application configuration."""
 
-    # Storage - defaults to ~/.local/share/meetscribe
     data_dir: Path = field(default_factory=lambda: Path.home() / ".local/share/meetscribe")
     upload_dir: Path = field(
         default_factory=lambda: Path.home() / ".local/share/meetscribe/uploads"
@@ -54,25 +54,16 @@ class Config:
         default_factory=lambda: Path.home() / ".local/share/meetscribe/meetscribe.db"
     )
 
-    # API
     host: str = "0.0.0.0"
     port: int = 8000
-    api_token: str | None = None  # If set, requires Bearer token auth
+    api_token: str | None = None
 
-    # GPU Worker
     gpu: GPUWorkerConfig = field(default_factory=GPUWorkerConfig)
-
-    # Smart plug for GPU PC power control
     smart_plug: SmartPlugConfig = field(default_factory=SmartPlugConfig)
-
-    # Fallback
     fallback: FallbackConfig = field(default_factory=FallbackConfig)
-
-    # User settings
     local_speaker_name: str = "Dino"
 
     def __post_init__(self):
-        # Create directories
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.upload_dir.mkdir(parents=True, exist_ok=True)
 
@@ -81,7 +72,6 @@ def load_config() -> Config:
     """Load configuration from environment variables."""
     config = Config()
 
-    # Override from environment
     if data_dir := os.getenv("MEETSCRIBE_DATA_DIR"):
         config.data_dir = Path(data_dir)
         config.upload_dir = config.data_dir / "uploads"
@@ -96,6 +86,9 @@ def load_config() -> Config:
     if ssh_key := os.getenv("MEETSCRIBE_SSH_KEY"):
         config.gpu.ssh_key_path = Path(ssh_key)
 
+    if worker_token := os.getenv("MEETSCRIBE_GPU_WORKER_TOKEN"):
+        config.gpu.worker_token = worker_token
+
     if speaker := os.getenv("MEETSCRIBE_SPEAKER_NAME"):
         config.local_speaker_name = speaker
 
@@ -105,7 +98,6 @@ def load_config() -> Config:
     if worker_path := os.getenv("MEETSCRIBE_FALLBACK_WORKER_PATH"):
         config.fallback.worker_path = worker_path
 
-    # Smart plug config
     if plug_id := os.getenv("MEETSCRIBE_PLUG_DEVICE_ID"):
         config.smart_plug.device_id = plug_id
         config.smart_plug.enabled = True

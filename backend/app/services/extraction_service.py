@@ -1,8 +1,9 @@
 from ..core.llm import LLMFactory
+from ..interfaces import AbstractExtractionService
 from ..schemas.extraction import ExtractedData, MeetingSummary
 
 
-class ExtractionService:
+class ExtractionService(AbstractExtractionService):
     def __init__(self):
         self.client = LLMFactory.get_client()
         self.model = LLMFactory.get_model_name()

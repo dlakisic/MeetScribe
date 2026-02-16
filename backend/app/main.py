@@ -20,24 +20,36 @@ log = get_logger("api")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan - setup and teardown."""
-    # Load config and attach to app state
     config = load_config()
     app.state.config = config
 
-    # Initialize DB
     db = Database(config.db_path)
     await db.connect()
     app.state.db = db
 
-    # Initialize infrastructure and services
     repo = MeetingRepository(db)
-    transcriber = TranscriptionService(config)
-    job_store = JobStore()
+    job_store = JobStore(db)
+    await job_store.cleanup_old_jobs()
     extraction_service = ExtractionService()
+
+    from .transcription.fallback import FallbackTranscriber
+    from .transcription.gpu_client import GPUClient
+
+    gpu_client = GPUClient(config)
+    fallback = FallbackTranscriber(config) if config.fallback.enabled else None
+    gpu_waker = None
+
+    if config.smart_plug.enabled:
+        from .smart_plug import SmartPlug
+        from .transcription.gpu_waker import GPUWaker
+
+        smart_plug = SmartPlug(config.smart_plug)
+        gpu_waker = GPUWaker(smart_plug, gpu_client, config.smart_plug.boot_wait_time)
+
+    transcriber = TranscriptionService(gpu_client, fallback, gpu_waker)
 
     meeting_service = MeetingService(repo, transcriber, job_store, extraction_service)
 
-    # Attach services to app state for dependencies
     app.state.meeting_service = meeting_service
     app.state.job_store = job_store
 
@@ -65,7 +77,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
 app.include_router(upload.router)
 app.include_router(meetings.router)
 app.include_router(transcripts.router)
@@ -85,7 +96,7 @@ async def health(
     service: MeetingService = Depends(get_meeting_service),
 ):
     """Health check endpoint."""
-    gpu_available = await service.transcriber.gpu_client.is_gpu_available()
+    gpu_available = await service.is_gpu_available()
     return {
         "status": "ok",
         "gpu_available": gpu_available,
@@ -93,7 +104,6 @@ async def health(
     }
 
 
-# Simple CLI to run the server
 def main():
     import uvicorn
 

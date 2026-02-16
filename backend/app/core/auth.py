@@ -3,7 +3,6 @@
 from fastapi import HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-# Optional bearer token - returns None if no auth header
 security = HTTPBearer(auto_error=False)
 
 
@@ -20,7 +19,6 @@ def verify_token(
     Raises:
         HTTPException: 401 if token is required but missing/invalid
     """
-    # If no token configured, allow all requests
     if expected_token is None:
         return
 

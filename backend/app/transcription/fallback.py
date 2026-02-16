@@ -20,7 +20,6 @@ def _resolve_worker_path(config: Config) -> str:
     """Resolve the gpu-worker path from config or auto-detect."""
     if config.fallback.worker_path:
         return config.fallback.worker_path
-    # Auto-detect: project_root/gpu-worker
     return str(Path(__file__).parent.parent.parent.parent / "gpu-worker")
 
 
@@ -39,7 +38,6 @@ class FallbackTranscriber:
     ) -> TranscriptionResult:
         """Run transcription locally on CPU."""
         try:
-            # Add gpu-worker to sys.path so its absolute imports work
             if self._worker_path not in sys.path:
                 sys.path.insert(0, self._worker_path)
 

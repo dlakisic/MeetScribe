@@ -2,10 +2,12 @@ from datetime import datetime
 from pathlib import Path
 
 from ..core.logging import get_logger
-from ..repositories.meeting_repository import MeetingRepository
-from ..transcription import TranscriptionService
-from .extraction_service import ExtractionService
-from .job_store import JobStore
+from ..interfaces import (
+    AbstractExtractionService,
+    AbstractJobStore,
+    AbstractMeetingRepository,
+    AbstractTranscriber,
+)
 
 log = get_logger("service")
 
@@ -15,10 +17,10 @@ class MeetingService:
 
     def __init__(
         self,
-        repo: MeetingRepository,
-        transcriber: TranscriptionService,
-        job_store: JobStore,
-        extraction_service: ExtractionService,
+        repo: AbstractMeetingRepository,
+        transcriber: AbstractTranscriber,
+        job_store: AbstractJobStore,
+        extraction_service: AbstractExtractionService,
     ):
         self.repo = repo
         self.transcriber = transcriber
@@ -45,7 +47,8 @@ class MeetingService:
         metadata: dict,
     ):
         """Background task to process uploaded meeting files."""
-        self.job_store.update_status(job_id, "processing")
+        await self.job_store.update_status(job_id, "processing")
+        metadata["job_id"] = job_id
 
         try:
             result = await self.transcriber.transcribe(
@@ -67,7 +70,7 @@ class MeetingService:
             )
             await self._run_extraction(meeting_id, result.formatted or "")
 
-            self.job_store.update_status(
+            await self.job_store.update_status(
                 job_id,
                 "completed",
                 result={
@@ -93,7 +96,7 @@ class MeetingService:
     async def _mark_failed(self, job_id: str, meeting_id: int, error: str | None):
         """Mark both job and meeting as failed."""
         await self.repo.update_status(meeting_id, "failed")
-        self.job_store.update_status(job_id, "failed", error=error)
+        await self.job_store.update_status(job_id, "failed", error=error)
 
     async def get_meeting(self, meeting_id: int) -> dict | None:
         return await self.repo.get(meeting_id)
@@ -124,3 +127,7 @@ class MeetingService:
     async def list_meetings(self, limit: int = 50, offset: int = 0) -> dict:
         meetings = await self.repo.list(limit, offset)
         return {"meetings": meetings, "count": len(meetings)}
+
+    async def is_gpu_available(self) -> bool:
+        """Check GPU availability via the transcriber interface."""
+        return await self.transcriber.is_gpu_available()

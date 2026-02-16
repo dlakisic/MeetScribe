@@ -30,7 +30,7 @@ class Meeting(MeetingBase, table=True):
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
 
-    extracted_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    extracted_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
 
 class Transcript(SQLModel, table=True):
@@ -41,10 +41,23 @@ class Transcript(SQLModel, table=True):
     full_text: str
     formatted: str | None = None
     summary: str | None = None
-    stats: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    stats: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=datetime.now)
 
     meeting: Meeting | None = Relationship(back_populates="transcript")
+
+
+class Job(SQLModel, table=True):
+    __tablename__ = "jobs"  # type: ignore
+
+    id: int | None = Field(default=None, primary_key=True)
+    job_id: str = Field(unique=True, index=True)
+    meeting_id: int = Field(foreign_key="meetings.id")
+    status: str = Field(default="queued")
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+    result: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
+    error: str | None = None
 
 
 class Segment(SQLModel, table=True):

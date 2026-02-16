@@ -16,15 +16,12 @@ def setup_logging(level: str = "INFO") -> logging.Logger:
     logger = logging.getLogger("meetscribe")
     logger.setLevel(getattr(logging, level.upper(), logging.INFO))
 
-    # Avoid duplicate handlers on reload
     if logger.handlers:
         return logger
 
-    # Console handler with structured format
     handler = logging.StreamHandler(sys.stdout)
     handler.setLevel(logging.DEBUG)
 
-    # Format: timestamp | level | module | message
     formatter = logging.Formatter(
         fmt="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
@@ -35,7 +32,6 @@ def setup_logging(level: str = "INFO") -> logging.Logger:
     return logger
 
 
-# Default logger instance
 logger = setup_logging()
 
 

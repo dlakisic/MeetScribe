@@ -56,13 +56,14 @@ async def get_meeting_audio(
     if not meeting or not meeting.get("audio_file"):
         raise HTTPException(status_code=404, detail="Audio not found")
 
-    # Construct absolute path from relative path in DB
     audio_path = config.upload_dir / meeting["audio_file"]
+
+    if not audio_path.resolve().is_relative_to(config.upload_dir.resolve()):
+        raise HTTPException(status_code=400, detail="Invalid audio path")
 
     if not audio_path.exists():
         raise HTTPException(status_code=404, detail="Audio file missing")
 
-    # Guess media type from extension
     suffix = audio_path.suffix.lower()
     media_types = {
         ".mp3": "audio/mpeg",

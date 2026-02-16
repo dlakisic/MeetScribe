@@ -19,12 +19,17 @@ class GPUClient:
     def __init__(self, config: Config):
         self.gpu = config.gpu
         self.base_url = f"http://{self.gpu.host}:{self.gpu.worker_port}"
+        self._auth_headers = (
+            {"X-Worker-Token": self.gpu.worker_token} if self.gpu.worker_token else {}
+        )
 
     async def is_gpu_available(self) -> bool:
         """Check if the GPU worker is reachable."""
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
-                response = await client.get(f"{self.base_url}/health")
+                response = await client.get(
+                    f"{self.base_url}/health", headers=self._auth_headers
+                )
                 if response.status_code == 200:
                     data = response.json()
                     return data.get("status") == "ok"
@@ -56,6 +61,7 @@ class GPUClient:
                         f"{self.base_url}/transcribe",
                         files=files,
                         data=data,
+                        headers=self._auth_headers,
                     )
 
                 if response.status_code == 200:

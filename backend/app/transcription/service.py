@@ -1,31 +1,37 @@
-"""Unified transcription service with GPU, smart plug, and fallback support."""
+"""Unified transcription service with GPU, wake-up, and fallback support."""
 
-import asyncio
+from __future__ import annotations
+
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from ..config import Config
 from ..core.logging import get_logger
-from .fallback import FallbackTranscriber
-from .gpu_client import GPUClient
+from ..interfaces import AbstractTranscriber
 from .result import TranscriptionResult
+
+if TYPE_CHECKING:
+    from .fallback import FallbackTranscriber
+    from .gpu_client import GPUClient
+    from .gpu_waker import GPUWaker
 
 log = get_logger("transcription")
 
 
-class TranscriptionService:
-    """Orchestrates transcription via GPU worker, with smart plug wake-up and CPU fallback."""
+class TranscriptionService(AbstractTranscriber):
+    """Orchestrates transcription via GPU worker, with optional wake-up and CPU fallback.
 
-    def __init__(self, config: Config):
-        self.config = config
-        self.gpu_client = GPUClient(config)
-        self.fallback = FallbackTranscriber(config) if config.fallback.enabled else None
-        self.smart_plug = None
+    Dependencies are injected — this class no longer creates its own.
+    """
 
-        if config.smart_plug.enabled:
-            from ..smart_plug import SmartPlug
-
-            self.smart_plug = SmartPlug(config.smart_plug)
-            log.info(f"SmartPlug configured for device {config.smart_plug.device_id}")
+    def __init__(
+        self,
+        gpu_client: GPUClient,
+        fallback: FallbackTranscriber | None = None,
+        gpu_waker: GPUWaker | None = None,
+    ):
+        self.gpu_client = gpu_client
+        self.fallback = fallback
+        self.gpu_waker = gpu_waker
 
     async def transcribe(
         self,
@@ -37,13 +43,11 @@ class TranscriptionService:
         """Transcribe meeting using GPU or fallback to CPU."""
         gpu_available = await self.gpu_client.is_gpu_available()
 
-        if not gpu_available and self.smart_plug:
-            gpu_available = await self._try_wake_gpu(job_id)
+        if not gpu_available and self.gpu_waker:
+            gpu_available = await self.gpu_waker.try_wake(job_id)
 
         if gpu_available:
-            log.info(
-                f"[{job_id}] Using GPU worker at {self.config.gpu.host}:{self.config.gpu.worker_port}"
-            )
+            log.info(f"[{job_id}] Using GPU worker at {self.gpu_client.base_url}")
             result = await self.gpu_client.transcribe(mic_path, tab_path, metadata)
             if result.success:
                 return result
@@ -58,31 +62,6 @@ class TranscriptionService:
             error="GPU unavailable and fallback disabled",
         )
 
-    async def _try_wake_gpu(self, job_id: str) -> bool:
-        """Try to wake up the GPU PC via smart plug."""
-        if not self.smart_plug or not self.smart_plug.is_configured():
-            return False
-
-        log.info(f"[{job_id}] GPU not available, powering on via smart plug")
-
-        if not await self.smart_plug.turn_on():
-            log.error(f"[{job_id}] Failed to turn on smart plug")
-            return False
-
-        log.info(f"[{job_id}] Smart plug ON, waiting for GPU PC to boot")
-
-        boot_time = self.config.smart_plug.boot_wait_time
-        check_interval = 10
-        elapsed = 0
-
-        while elapsed < boot_time:
-            await asyncio.sleep(check_interval)
-            elapsed += check_interval
-            log.debug(f"[{job_id}] Waiting for GPU ({elapsed}/{boot_time}s)")
-
-            if await self.gpu_client.is_gpu_available():
-                log.info(f"[{job_id}] GPU worker is now available")
-                return True
-
-        log.warning(f"[{job_id}] GPU did not become available after {boot_time}s")
-        return False
+    async def is_gpu_available(self) -> bool:
+        """Check if the GPU worker is reachable."""
+        return await self.gpu_client.is_gpu_available()

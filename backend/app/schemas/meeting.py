@@ -7,6 +7,9 @@ class SegmentUpdate(BaseModel):
 
 class MeetingUpdate(BaseModel):
     title: str | None = None
+    platform: str | None = None
+    url: str | None = None
+    duration: float | None = None
 
 
 class SpeakerUpdate(BaseModel):
