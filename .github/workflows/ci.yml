@@ -38,7 +38,7 @@ jobs:
         run: uv sync --group dev
 
       - name: Run tests
-        run: uv run pytest tests/extraction_test.py -v
+        run: uv run pytest tests/ -v --tb=short
         env:
           MEETSCRIBE_DATA_DIR: /tmp/meetscribe
 
