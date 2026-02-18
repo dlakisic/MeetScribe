@@ -11,9 +11,31 @@ from backend.app.routers.upload import _parse_date, _safe_filename
 async def test_root(client):
     resp = await client.get("/")
     assert resp.status_code == 200
+    assert "X-Request-ID" in resp.headers
     data = resp.json()
     assert data["service"] == "MeetScribe"
     assert "version" in data
+
+
+@pytest.mark.asyncio
+async def test_request_id_header_propagation(client):
+    request_id = "req-test-123"
+    resp = await client.get("/", headers={"X-Request-ID": request_id})
+    assert resp.status_code == 200
+    assert resp.headers.get("X-Request-ID") == request_id
+
+
+@pytest.mark.asyncio
+async def test_request_id_present_on_cors_preflight(client):
+    resp = await client.options(
+        "/api/transcripts",
+        headers={
+            "Origin": "https://example.com",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    assert resp.status_code == 200
+    assert "X-Request-ID" in resp.headers
 
 
 @pytest.mark.asyncio

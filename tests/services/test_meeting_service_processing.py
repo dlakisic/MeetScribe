@@ -83,7 +83,15 @@ async def test_process_upload_success(
     mock_job_store.update_status.assert_any_call("job-123", "processing")
     mock_transcriber.transcribe.assert_called_once()
     mock_repo.save_transcript.assert_called_once()
-    mock_extraction_service.extract_from_transcript.assert_called_once()
+    mock_extraction_service.extract_from_transcript.assert_called_once_with(
+        "Hello world",
+        context={
+            "meeting_id": 1,
+            "job_id": "job-123",
+            "request_id": None,
+            "feature": "extraction",
+        },
+    )
     mock_repo.save_extracted_data.assert_called_once()
     mock_job_store.update_status.assert_called_with(
         "job-123",
