@@ -1,11 +1,14 @@
 import json
 import os
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 from .domain import TranscriptSegment
 from .logging import get_logger
 from .transcriber import WhisperTranscriber
+
+ProgressCallback = Callable[[str, str], None]  # (step_key, description)
 
 log = get_logger("pipeline")
 
@@ -107,6 +110,7 @@ class MeetingPipeline:
         tab_path: Path | None,
         metadata: dict,
         output_path: Path,
+        on_progress: ProgressCallback | None = None,
     ) -> dict:
         job_id = metadata.get("job_id", "?")
         request_id = metadata.get("request_id")
@@ -118,16 +122,30 @@ class MeetingPipeline:
 
         log.info(
             f"[{job_id}] Starting pipeline (mic={has_mic}, tab={has_tab})",
-            extra={"request_id": request_id, "job_id": job_id, "has_mic": has_mic, "has_tab": has_tab},
+            extra={
+                "request_id": request_id,
+                "job_id": job_id,
+                "has_mic": has_mic,
+                "has_tab": has_tab,
+            },
         )
 
         timings = {}
 
         mic_segments = []
         if has_mic:
+            if on_progress:
+                on_progress(
+                    "transcribing_mic", f"Transcribing microphone track as '{local_speaker}'"
+                )
             log.info(
                 f"[{job_id}] Transcribing microphone track as '{local_speaker}'",
-                extra={"request_id": request_id, "job_id": job_id, "speaker": local_speaker, "track": "mic"},
+                extra={
+                    "request_id": request_id,
+                    "job_id": job_id,
+                    "speaker": local_speaker,
+                    "track": "mic",
+                },
             )
             t0 = time.monotonic()
             mic_segments = self.transcriber.transcribe_file(
@@ -146,9 +164,18 @@ class MeetingPipeline:
 
         tab_segments = []
         if has_tab:
+            if on_progress:
+                on_progress(
+                    "transcribing_tab", f"Transcribing tab audio track as '{remote_speaker}'"
+                )
             log.info(
                 f"[{job_id}] Transcribing tab audio track as '{remote_speaker}'",
-                extra={"request_id": request_id, "job_id": job_id, "speaker": remote_speaker, "track": "tab"},
+                extra={
+                    "request_id": request_id,
+                    "job_id": job_id,
+                    "speaker": remote_speaker,
+                    "track": "tab",
+                },
             )
             t0 = time.monotonic()
             tab_segments = self.transcriber.transcribe_file(
@@ -165,6 +192,8 @@ class MeetingPipeline:
                 },
             )
 
+        if on_progress:
+            on_progress("diarizing", "Running speaker diarization")
         t0 = time.monotonic()
         if has_tab:
             self._diarize_segments(tab_path, tab_segments)
@@ -175,6 +204,8 @@ class MeetingPipeline:
         mic_offset = metadata.get("mic_start_offset", 0.0)
         tab_offset = metadata.get("tab_start_offset", 0.0)
 
+        if on_progress:
+            on_progress("merging", "Merging transcripts")
         merged = merge_transcripts(
             mic_segments,
             tab_segments,
@@ -206,6 +237,8 @@ class MeetingPipeline:
             },
         }
 
+        if on_progress:
+            on_progress("saving", "Saving results")
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(result, f, ensure_ascii=False, indent=2)

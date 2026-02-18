@@ -6,7 +6,7 @@ It delegates logic to `core/` modules.
 
 from pathlib import Path
 
-from core.pipeline import MeetingPipeline
+from core.pipeline import MeetingPipeline, ProgressCallback
 from core.transcriber import WhisperTranscriber
 
 
@@ -25,6 +25,7 @@ def process_meeting(
     device: str = "cuda",
     language: str | None = None,
     transcriber: WhisperTranscriber | None = None,
+    on_progress: ProgressCallback | None = None,
 ) -> dict:
     """Facade for processing a meeting.
 
@@ -39,6 +40,7 @@ def process_meeting(
         tab_path=tab_path,
         metadata=metadata,
         output_path=output_path,
+        on_progress=on_progress,
     )
 
 

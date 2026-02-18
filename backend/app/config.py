@@ -17,7 +17,9 @@ class GPUWorkerConfig:
     worker_token: str = ""  # Shared secret for X-Worker-Token auth
     work_dir: Path = Path("/tmp/meetscribe")
     model_size: str = "large-v3"
-    timeout: int = 600  # Max seconds to wait for transcription
+    timeout: int = 1800  # Max seconds to wait for transcription (polling)
+    poll_interval: float = 5.0  # Seconds between status polls
+    submit_timeout: float = 60.0  # Timeout for the initial file upload POST
 
 
 @dataclass
@@ -88,6 +90,10 @@ def load_config() -> Config:
 
     if worker_token := os.getenv("MEETSCRIBE_GPU_WORKER_TOKEN"):
         config.gpu.worker_token = worker_token
+    if poll_interval := os.getenv("MEETSCRIBE_GPU_POLL_INTERVAL"):
+        config.gpu.poll_interval = float(poll_interval)
+    if submit_timeout := os.getenv("MEETSCRIBE_GPU_SUBMIT_TIMEOUT"):
+        config.gpu.submit_timeout = float(submit_timeout)
 
     if speaker := os.getenv("MEETSCRIBE_SPEAKER_NAME"):
         config.local_speaker_name = speaker
