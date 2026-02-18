@@ -97,7 +97,9 @@ class LLMObservability:
                 trace = None
                 generation = None
 
-        return ExtractionSpan(context=ctx, started_at=time.monotonic(), trace=trace, generation=generation)
+        return ExtractionSpan(
+            context=ctx, started_at=time.monotonic(), trace=trace, generation=generation
+        )
 
     def finish_success(self, span: ExtractionSpan, output: dict[str, Any]) -> None:
         """Finalize successful extraction span."""

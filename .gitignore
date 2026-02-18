@@ -34,5 +34,8 @@ test_files/
 .coverage
 htmlcov/
 
+# Local scripts
+deploy.sh
+
 # Dependencies
 # uv.lock should be committed for reproducible builds
