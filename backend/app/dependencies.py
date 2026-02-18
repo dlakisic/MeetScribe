@@ -21,4 +21,10 @@ def get_job_store(request: Request) -> JobStore:
 def require_auth(request: Request, credentials=Depends(security)):
     """Dependency to require authentication on protected endpoints."""
     config = get_config(request)
-    verify_token(credentials, config.api_token)
+    request_id = getattr(request.state, "request_id", None)
+    verify_token(
+        credentials,
+        config.api_token,
+        request_id=request_id,
+        path=str(request.url.path),
+    )

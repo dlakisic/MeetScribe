@@ -41,20 +41,30 @@ class TranscriptionService(AbstractTranscriber):
         job_id: str,
     ) -> TranscriptionResult:
         """Transcribe meeting using GPU or fallback to CPU."""
+        request_id = metadata.get("request_id")
         gpu_available = await self.gpu_client.is_gpu_available()
 
         if not gpu_available and self.gpu_waker:
             gpu_available = await self.gpu_waker.try_wake(job_id)
 
         if gpu_available:
-            log.info(f"[{job_id}] Using GPU worker at {self.gpu_client.base_url}")
+            log.info(
+                f"[{job_id}] Using GPU worker at {self.gpu_client.base_url}",
+                extra={"request_id": request_id, "job_id": job_id},
+            )
             result = await self.gpu_client.transcribe(mic_path, tab_path, metadata)
             if result.success:
                 return result
-            log.error(f"[{job_id}] GPU transcription failed: {result.error}")
+            log.error(
+                f"[{job_id}] GPU transcription failed: {result.error}",
+                extra={"request_id": request_id, "job_id": job_id},
+            )
 
         if self.fallback:
-            log.info(f"[{job_id}] GPU unavailable, using CPU fallback")
+            log.info(
+                f"[{job_id}] GPU unavailable, using CPU fallback",
+                extra={"request_id": request_id, "job_id": job_id},
+            )
             return await self.fallback.transcribe(mic_path, tab_path, metadata)
 
         return TranscriptionResult(

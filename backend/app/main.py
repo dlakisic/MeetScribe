@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
+from uuid import uuid4
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from .config import Config, load_config
 from .core.logging import get_logger
@@ -15,6 +17,17 @@ from .services.meeting_service import MeetingService
 from .transcription import TranscriptionService
 
 log = get_logger("api")
+
+
+class RequestIDMiddleware(BaseHTTPMiddleware):
+    """Attach a request ID to request state and response headers."""
+
+    async def dispatch(self, request: Request, call_next):
+        request_id = request.headers.get("X-Request-ID") or uuid4().hex[:12]
+        request.state.request_id = request_id
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        return response
 
 
 @asynccontextmanager
@@ -76,6 +89,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RequestIDMiddleware)
 
 app.include_router(upload.router)
 app.include_router(meetings.router)
@@ -92,11 +106,21 @@ async def root():
 
 @app.get("/health")
 async def health(
+    request: Request,
     config: Config = Depends(get_config),
     service: MeetingService = Depends(get_meeting_service),
 ):
     """Health check endpoint."""
+    request_id = getattr(request.state, "request_id", None)
     gpu_available = await service.is_gpu_available()
+    log.info(
+        "Health check served",
+        extra={
+            "request_id": request_id,
+            "gpu_available": gpu_available,
+            "fallback_enabled": config.fallback.enabled,
+        },
+    )
     return {
         "status": "ok",
         "gpu_available": gpu_available,

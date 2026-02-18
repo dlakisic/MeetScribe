@@ -12,6 +12,7 @@ import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from uuid import uuid4
 
 import uvicorn
 from core.logging import get_logger
@@ -29,11 +30,19 @@ WORKER_TOKEN = os.environ.get("MEETSCRIBE_GPU_WORKER_TOKEN", "")
 @app.middleware("http")
 async def verify_worker_token(request: Request, call_next):
     """Reject requests with invalid X-Worker-Token when a token is configured."""
+    request_id = request.headers.get("X-Request-ID") or uuid4().hex[:12]
+    request.state.request_id = request_id
     if WORKER_TOKEN:
         token = request.headers.get("X-Worker-Token", "")
         if token != WORKER_TOKEN:
-            return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
-    return await call_next(request)
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Unauthorized"},
+                headers={"X-Request-ID": request_id},
+            )
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    return response
 
 
 def _safe_filename(raw: str | None) -> str:
@@ -100,6 +109,7 @@ async def health():
 
 @app.post("/transcribe")
 async def transcribe(
+    request: Request,
     mic_file: UploadFile | None = File(None, description="Microphone audio file"),
     tab_file: UploadFile | None = File(None, description="Tab audio file"),
     metadata: str = Form(..., description="Meeting metadata as JSON"),
@@ -114,14 +124,23 @@ async def transcribe(
         raise HTTPException(status_code=400, detail="Invalid metadata JSON")
 
     job_id = meta.get("job_id", "unknown")
+    request_id = meta.get("request_id") or getattr(request.state, "request_id", None)
+    if request_id:
+        meta["request_id"] = request_id
 
     if worker.lock.locked():
-        log.info(f"[{job_id}] Worker is busy, queueing request")
+        log.info(
+            f"[{job_id}] Worker is busy, queueing request",
+            extra={"request_id": request_id, "job_id": job_id},
+        )
 
     async with worker.lock:
         worker.current_job_id = job_id
         worker.current_job_start = time.monotonic()
-        log.info(f"[{job_id}] Acquired lock, starting transcription")
+        log.info(
+            f"[{job_id}] Acquired lock, starting transcription",
+            extra={"request_id": request_id, "job_id": job_id},
+        )
 
         job_dir = Path(tempfile.mkdtemp(prefix=f"meetscribe_{job_id}_"))
 
@@ -156,13 +175,19 @@ async def transcribe(
             )
 
             elapsed = round(time.monotonic() - worker.current_job_start, 1)
-            log.info(f"[{job_id}] Transcription complete in {elapsed}s")
+            log.info(
+                f"[{job_id}] Transcription complete in {elapsed}s",
+                extra={"request_id": request_id, "job_id": job_id, "duration_seconds": elapsed},
+            )
             return JSONResponse(content=result)
 
         except HTTPException:
             raise
         except Exception as e:
-            log.error(f"[{job_id}] Transcription failed: {e}")
+            log.error(
+                f"[{job_id}] Transcription failed: {e}",
+                extra={"request_id": request_id, "job_id": job_id},
+            )
             raise HTTPException(status_code=500, detail="Internal transcription error")
 
         finally:

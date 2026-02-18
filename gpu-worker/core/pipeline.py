@@ -109,35 +109,61 @@ class MeetingPipeline:
         output_path: Path,
     ) -> dict:
         job_id = metadata.get("job_id", "?")
+        request_id = metadata.get("request_id")
         local_speaker = metadata.get("local_speaker", "Dino")
         remote_speaker = metadata.get("remote_speaker", "Interlocuteur")
 
         has_mic = mic_path and mic_path.exists()
         has_tab = tab_path and tab_path.exists()
 
-        log.info(f"[{job_id}] Starting pipeline (mic={has_mic}, tab={has_tab})")
+        log.info(
+            f"[{job_id}] Starting pipeline (mic={has_mic}, tab={has_tab})",
+            extra={"request_id": request_id, "job_id": job_id, "has_mic": has_mic, "has_tab": has_tab},
+        )
 
         timings = {}
 
         mic_segments = []
         if has_mic:
-            log.info(f"[{job_id}] Transcribing microphone track as '{local_speaker}'")
+            log.info(
+                f"[{job_id}] Transcribing microphone track as '{local_speaker}'",
+                extra={"request_id": request_id, "job_id": job_id, "speaker": local_speaker, "track": "mic"},
+            )
             t0 = time.monotonic()
             mic_segments = self.transcriber.transcribe_file(
                 mic_path, local_speaker, ffmpeg_timeout=self.ffmpeg_timeout
             )
             timings["transcribe_mic"] = round(time.monotonic() - t0, 1)
-            log.info(f"[{job_id}] Mic transcription: {timings['transcribe_mic']}s")
+            log.info(
+                f"[{job_id}] Mic transcription: {timings['transcribe_mic']}s",
+                extra={
+                    "request_id": request_id,
+                    "job_id": job_id,
+                    "track": "mic",
+                    "duration_seconds": timings["transcribe_mic"],
+                },
+            )
 
         tab_segments = []
         if has_tab:
-            log.info(f"[{job_id}] Transcribing tab audio track as '{remote_speaker}'")
+            log.info(
+                f"[{job_id}] Transcribing tab audio track as '{remote_speaker}'",
+                extra={"request_id": request_id, "job_id": job_id, "speaker": remote_speaker, "track": "tab"},
+            )
             t0 = time.monotonic()
             tab_segments = self.transcriber.transcribe_file(
                 tab_path, remote_speaker, ffmpeg_timeout=self.ffmpeg_timeout
             )
             timings["transcribe_tab"] = round(time.monotonic() - t0, 1)
-            log.info(f"[{job_id}] Tab transcription: {timings['transcribe_tab']}s")
+            log.info(
+                f"[{job_id}] Tab transcription: {timings['transcribe_tab']}s",
+                extra={
+                    "request_id": request_id,
+                    "job_id": job_id,
+                    "track": "tab",
+                    "duration_seconds": timings["transcribe_tab"],
+                },
+            )
 
         t0 = time.monotonic()
         if has_tab:
@@ -155,7 +181,10 @@ class MeetingPipeline:
             mic_offset=mic_offset,
             tab_offset=tab_offset,
         )
-        log.info(f"[{job_id}] Merged transcript: {len(merged)} segments")
+        log.info(
+            f"[{job_id}] Merged transcript: {len(merged)} segments",
+            extra={"request_id": request_id, "job_id": job_id, "segments_count": len(merged)},
+        )
 
         result = {
             "meeting": {
@@ -181,5 +210,8 @@ class MeetingPipeline:
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(result, f, ensure_ascii=False, indent=2)
 
-        log.info(f"[{job_id}] Transcript saved to {output_path}")
+        log.info(
+            f"[{job_id}] Transcript saved to {output_path}",
+            extra={"request_id": request_id, "job_id": job_id, "output_path": str(output_path)},
+        )
         return result

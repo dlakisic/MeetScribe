@@ -49,6 +49,11 @@ class MeetingService:
         """Background task to process uploaded meeting files."""
         await self.job_store.update_status(job_id, "processing")
         metadata["job_id"] = job_id
+        request_id = metadata.get("request_id")
+        log.info(
+            "Job processing started",
+            extra={"request_id": request_id, "job_id": job_id, "meeting_id": meeting_id},
+        )
 
         try:
             result = await self.transcriber.transcribe(
@@ -68,7 +73,12 @@ class MeetingService:
                 formatted=result.formatted or "",
                 stats=result.stats or {},
             )
-            await self._run_extraction(meeting_id, result.formatted or "")
+            await self._run_extraction(
+                meeting_id=meeting_id,
+                job_id=job_id,
+                request_id=request_id,
+                formatted_text=result.formatted or "",
+            )
 
             await self.job_store.update_status(
                 job_id,
@@ -79,15 +89,47 @@ class MeetingService:
                     "used_fallback": result.used_fallback,
                 },
             )
+            log.info(
+                "Job processing completed",
+                extra={
+                    "request_id": request_id,
+                    "job_id": job_id,
+                    "meeting_id": meeting_id,
+                    "used_fallback": result.used_fallback,
+                },
+            )
 
         except Exception as e:
+            log.error(
+                "Job processing failed",
+                extra={
+                    "request_id": request_id,
+                    "job_id": job_id,
+                    "meeting_id": meeting_id,
+                    "error": str(e),
+                },
+            )
             await self._mark_failed(job_id, meeting_id, str(e))
 
-    async def _run_extraction(self, meeting_id: int, formatted_text: str):
+    async def _run_extraction(
+        self,
+        meeting_id: int,
+        job_id: str,
+        request_id: str | None,
+        formatted_text: str,
+    ):
         """Extract structured data (summary, actions, decisions) from transcript."""
         try:
             log.info(f"Starting extraction for meeting {meeting_id}")
-            extracted = await self.extraction_service.extract_from_transcript(formatted_text)
+            extracted = await self.extraction_service.extract_from_transcript(
+                formatted_text,
+                context={
+                    "meeting_id": meeting_id,
+                    "job_id": job_id,
+                    "request_id": request_id,
+                    "feature": "extraction",
+                },
+            )
             await self.repo.save_extracted_data(meeting_id, extracted.model_dump())
             log.info(f"Extraction completed for meeting {meeting_id}")
         except Exception as e:

@@ -4,14 +4,25 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+)
 
 from ..config import Config
+from ..core.logging import get_logger
 from ..dependencies import get_config, get_job_store, get_meeting_service, require_auth
 from ..services.job_store import JobStore
 from ..services.meeting_service import MeetingService
 
 router = APIRouter(prefix="/api/upload", dependencies=[Depends(require_auth)])
+log = get_logger("upload")
 
 
 def _safe_filename(name: str) -> str:
@@ -49,6 +60,7 @@ def _save_file(upload_file: UploadFile, dest_path: Path):
 @router.post("")
 async def upload_meeting(
     background_tasks: BackgroundTasks,
+    request: Request,
     mic_file: UploadFile | None = File(None, description="Microphone audio file"),
     tab_file: UploadFile | None = File(None, description="Tab audio file"),
     metadata: str = Form(..., description="Meeting metadata as JSON"),
@@ -58,6 +70,7 @@ async def upload_meeting(
 ):
     """Upload meeting audio files for transcription. At least one file required."""
     meta = _parse_metadata(metadata)
+    request_id = getattr(request.state, "request_id", None)
 
     if not mic_file and not tab_file:
         raise HTTPException(status_code=400, detail="At least one audio file is required")
@@ -91,8 +104,20 @@ async def upload_meeting(
 
     meta["local_speaker"] = config.local_speaker_name
     meta["remote_speaker"] = "Interlocuteur"
+    if request_id:
+        meta["request_id"] = request_id
 
     await job_store.create_job(job_id, meeting_id)
+    log.info(
+        "Upload accepted",
+        extra={
+            "request_id": request_id,
+            "job_id": job_id,
+            "meeting_id": meeting_id,
+            "has_mic": bool(mic_file),
+            "has_tab": bool(tab_file),
+        },
+    )
 
     background_tasks.add_task(
         service.process_upload,

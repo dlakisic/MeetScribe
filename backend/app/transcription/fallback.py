@@ -37,6 +37,8 @@ class FallbackTranscriber:
         metadata: dict,
     ) -> TranscriptionResult:
         """Run transcription locally on CPU."""
+        job_id = metadata.get("job_id", "unknown")
+        request_id = metadata.get("request_id")
         try:
             if self._worker_path not in sys.path:
                 sys.path.insert(0, self._worker_path)
@@ -45,6 +47,10 @@ class FallbackTranscriber:
 
             base_path = mic_path or tab_path
             output_path = base_path.parent / "output.json"
+            log.info(
+                f"[{job_id}] Starting CPU fallback transcription",
+                extra={"request_id": request_id, "job_id": job_id},
+            )
 
             loop = asyncio.get_event_loop()
             result = await loop.run_in_executor(
@@ -68,8 +74,9 @@ class FallbackTranscriber:
             )
         except ImportError:
             log.error(
-                f"Fallback unavailable: gpu-worker not found at {self._worker_path}. "
-                "Set MEETSCRIBE_FALLBACK_WORKER_PATH or check your deployment."
+                f"[{job_id}] Fallback unavailable: gpu-worker not found at {self._worker_path}. "
+                "Set MEETSCRIBE_FALLBACK_WORKER_PATH or check your deployment.",
+                extra={"request_id": request_id, "job_id": job_id},
             )
             return TranscriptionResult(
                 success=False,
@@ -77,6 +84,10 @@ class FallbackTranscriber:
                 used_fallback=True,
             )
         except Exception as e:
+            log.error(
+                f"[{job_id}] CPU fallback failed: {e}",
+                extra={"request_id": request_id, "job_id": job_id},
+            )
             return TranscriptionResult(
                 success=False,
                 error=str(e),

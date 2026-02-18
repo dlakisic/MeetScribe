@@ -3,12 +3,17 @@
 from fastapi import HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from .logging import get_logger
+
 security = HTTPBearer(auto_error=False)
+log = get_logger("auth")
 
 
 def verify_token(
     credentials: HTTPAuthorizationCredentials | None,
     expected_token: str | None,
+    request_id: str | None = None,
+    path: str | None = None,
 ) -> None:
     """Verify Bearer token authentication.
 
@@ -23,6 +28,10 @@ def verify_token(
         return
 
     if credentials is None:
+        log.warning(
+            "Unauthorized request: missing token",
+            extra={"request_id": request_id, "path": path},
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing authentication token",
@@ -30,6 +39,10 @@ def verify_token(
         )
 
     if credentials.credentials != expected_token:
+        log.warning(
+            "Unauthorized request: invalid token",
+            extra={"request_id": request_id, "path": path},
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication token",
