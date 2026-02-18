@@ -82,7 +82,9 @@ class AbstractExtractionService(ABC):
     """Interface for LLM-based extraction."""
 
     @abstractmethod
-    async def extract_from_transcript(self, text: str): ...
+    async def extract_from_transcript(
+        self, text: str, context: dict | None = None
+    ): ...
 
 
 class AbstractJobStore(ABC):
