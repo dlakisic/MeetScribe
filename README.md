@@ -75,9 +75,29 @@ uv run uvicorn app.main:app --port 8000
 MEETSCRIBE_API_TOKEN=your-secret-token
 MEETSCRIBE_GPU_HOST=gpu-machine-ip
 MEETSCRIBE_SPEAKER_NAME=YourName
+MEETSCRIBE_LOG_FILE=/var/log/meetscribe/backend.jsonl  # optional JSON log file (rotating)
 LLM_API_KEY=your-llm-api-key        # For summary/action extraction
 LLM_BASE_URL=https://your-llm-endpoint
+MEETSCRIBE_EXTRACTION_PROMPT_VERSION=v1
+
+# Optional: Langfuse (LLM observability only)
+LANGFUSE_PUBLIC_KEY=pk-lf-...
+LANGFUSE_SECRET_KEY=sk-lf-...
+LANGFUSE_HOST=https://cloud.langfuse.com
+MEETSCRIBE_LANGFUSE_CAPTURE_INPUT=false
+MEETSCRIBE_LANGFUSE_CAPTURE_OUTPUT=false
 ```
+
+Install the optional SDK to enable Langfuse export:
+```bash
+uv add langfuse
+```
+
+Console logs are always text-formatted for readability. Set `MEETSCRIBE_LOG_FILE` to also write
+JSON structured logs to disk (with rotation).
+
+`X-Request-ID` is supported on backend API calls. If provided by the client, it is echoed back in
+the response, propagated to worker calls/logs, and included in LLM extraction observability metadata.
 
 ### 2. GPU Worker
 ```bash
