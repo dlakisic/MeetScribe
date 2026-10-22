@@ -8,6 +8,7 @@ const state = {
     meetingData: null,
     meetings: [],
     pollTimers: new Map(),
+    jobProgress: new Map(), // meetingId -> { label, percent } while processing
     audioReady: Promise.resolve(),
     askResult: null,
 };

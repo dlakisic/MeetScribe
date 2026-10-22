@@ -103,6 +103,12 @@ export async function uploadMeetingAudio(formData) {
     return await res.json();
 }
 
+export async function fetchActiveJobs() {
+    const res = await authFetch(`${getApiUrl()}/api/status`);
+    if (!res.ok) throw new Error('Failed to fetch active jobs');
+    return (await res.json()).jobs;
+}
+
 export async function fetchJobStatus(jobId) {
     const res = await authFetch(`${getApiUrl()}/api/status/${jobId}`);
     if (!res.ok) throw new Error('Failed to fetch job status');

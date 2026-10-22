@@ -851,3 +851,31 @@ body {
   margin-left: -10px;
   padding-left: 8px;
 }
+
+/* Transcription progress on a processing meeting */
+.meeting-progress {
+  position: relative;
+  height: 3px;
+  margin-top: 8px;
+  border-radius: 2px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.meeting-progress-fill {
+  height: 100%;
+  width: 0;
+  background: var(--amber);
+  transition: width 0.6s ease;
+}
+
+.meeting-progress.indeterminate .meeting-progress-fill {
+  position: absolute;
+  width: 30%;
+  animation: progress-sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes progress-sweep {
+  from { left: -30%; }
+  to { left: 100%; }
+}

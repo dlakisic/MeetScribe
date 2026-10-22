@@ -3,7 +3,7 @@ import * as Ask from './ask.js';
 import * as Audio from './audio.js';
 import * as Config from './config.js';
 import { copyTranscript, exportTranscript } from './export.js';
-import { startStatusPolling } from './job-poller.js';
+import { applyAllProgress, applyProgress, resumeActiveJobs, startStatusPolling } from './job-poller.js';
 import { setupSettingsHandlers } from './settings.js';
 import state from './state.js';
 import * as UI from './ui.js';
@@ -18,7 +18,8 @@ const askSubmit = document.getElementById('ask-submit');
 
 document.addEventListener('DOMContentLoaded', async () => {
     await Config.loadConfig();
-    loadMeetings();
+    await loadMeetings();
+    resumeActiveJobs({ loadMeetings, selectMeeting });
 
     if (uploadBtn && fileInput) {
         uploadBtn.addEventListener('click', () => fileInput.click());
@@ -54,12 +55,14 @@ async function loadMeetings() {
     const data = await API.fetchMeetings();
     state.meetings = data.meetings || [];
     UI.renderMeetingList(state.meetings, state.selectedMeetingId, selectMeeting);
+    applyAllProgress();
 }
 
 function filterMeetings(query) {
     const q = query.toLowerCase().trim();
     if (!q) {
         UI.renderMeetingList(state.meetings, state.selectedMeetingId, selectMeeting);
+        applyAllProgress();
         return;
     }
     const filtered = state.meetings.filter(m =>
@@ -67,6 +70,7 @@ function filterMeetings(query) {
         (m.platform || '').toLowerCase().includes(q)
     );
     UI.renderMeetingList(filtered, state.selectedMeetingId, selectMeeting);
+    applyAllProgress();
 }
 
 async function selectMeeting(id, element) {
@@ -108,6 +112,7 @@ async function selectMeeting(id, element) {
     UI.renderInsights(meeting.extracted_data);
 
     state.audioReady = Audio.loadAudioForMeeting(meeting.id, !!meeting.audio_file);
+    applyProgress(meeting.id);
 }
 
 async function handleSegmentTextChange(segId, newText, seg) {
