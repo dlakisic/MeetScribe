@@ -37,7 +37,11 @@ were what when where which who why will with would you your
 au aux avec ce ces cette dans de des du elle en est et il ils je la le les leur lui ma
 mais me mes moi mon ne nous on ou par pas pour qu que qui quoi quand comment sa se ses
 son sont sur ta te tes toi ton tu un une vos votre vous
+quel quelle quels quelles combien pourquoi lequel laquelle ca cela ete etre avoir ai as
+avons avez ont fait faire tout tous toute toutes dont donc alors aussi plus tres bien
+about all any been can could should there these those
 """
+# Matched after _fold(), so accented words are listed without accents (été -> ete).
 _STOPWORDS = frozenset(_STOPWORDS_TEXT.split())
 
 

@@ -304,3 +304,17 @@ async def test_rag_falls_back_when_llm_not_configured(client, test_app, monkeypa
         resp = await client.post("/api/rag/ask", json={"query": "When do we ship?"})
     assert resp.status_code == 200
     assert resp.json()["fallback_used"] is True
+
+
+@pytest.mark.asyncio
+async def test_rag_ignores_question_words(client, test_app):
+    """Found by rag_eval: 'quel' alone used to match any segment asking a question."""
+    await _seed(
+        test_app,
+        "Questions",
+        [{"speaker": "Alice", "text": "On part sur quel hébergement ?", "start": 0, "end": 2}],
+    )
+    resp = await client.post(
+        "/api/rag/ask", json={"query": "Quel est le budget du séminaire au Japon ?"}
+    )
+    assert resp.json()["citations"] == []
