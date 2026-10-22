@@ -114,3 +114,16 @@ export async function fetchAudioBlob(url) {
     if (!res.ok) throw new Error('Audio not available');
     return res.blob();
 }
+
+export async function askRag(query, meetingIds = null, topK = 5) {
+    const res = await authFetch(`${getApiUrl()}/api/rag/ask`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, meeting_ids: meetingIds, top_k: topK }),
+    });
+    if (res.status === 401) throw new Error('Non autorisé (vérifiez votre token)');
+    if (res.status === 422) throw new Error('Question trop courte (3 caractères minimum)');
+    if (res.status === 503) throw new Error('Service de réponse indisponible');
+    if (!res.ok) throw new Error(`Erreur ${res.status}`);
+    return await res.json();
+}

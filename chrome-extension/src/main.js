@@ -1,4 +1,5 @@
 import * as API from './api.js';
+import * as Ask from './ask.js';
 import * as Audio from './audio.js';
 import * as Config from './config.js';
 import { copyTranscript, exportTranscript } from './export.js';
@@ -11,6 +12,9 @@ const uploadBtn = document.getElementById('upload-btn');
 const fileInput = document.getElementById('file-upload');
 const searchInput = document.getElementById('search-input');
 const currentTitle = document.getElementById('current-title');
+const askInput = document.getElementById('ask-input');
+const askScope = document.getElementById('ask-scope-current');
+const askSubmit = document.getElementById('ask-submit');
 
 document.addEventListener('DOMContentLoaded', async () => {
     await Config.loadConfig();
@@ -40,6 +44,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     setupTitleEditing();
+    setupAsk();
 });
 
 async function loadMeetings() {
@@ -72,7 +77,9 @@ async function selectMeeting(id, element) {
     if (element) element.classList.add('active');
 
     document.getElementById('main-empty').style.display = 'none';
+    document.getElementById('ask-view').style.display = 'none';
     document.getElementById('details-view').style.display = 'flex';
+    document.querySelector('.header-meta').style.visibility = 'visible';
 
     const data = await API.fetchMeetingDetails(id);
     if (!data) return;
@@ -100,7 +107,7 @@ async function selectMeeting(id, element) {
     );
     UI.renderInsights(meeting.extracted_data);
 
-    Audio.loadAudioForMeeting(meeting.id, !!meeting.audio_file);
+    state.audioReady = Audio.loadAudioForMeeting(meeting.id, !!meeting.audio_file);
 }
 
 async function handleSegmentTextChange(segId, newText, seg) {
@@ -200,4 +207,66 @@ function switchTab(tabName) {
 
     document.querySelector(`.tab[data-tab="${tabName}"]`)?.classList.add('active');
     document.getElementById(`tab-${tabName}`)?.classList.add('active');
+}
+
+function setupAsk() {
+    document.getElementById('ask-open-btn').addEventListener('click', showAskView);
+    document.getElementById('ask-form').addEventListener('submit', handleAsk);
+    askInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            document.getElementById('ask-form').requestSubmit();
+        }
+    });
+}
+
+function showAskView() {
+    Audio.stopAudio();
+    document.getElementById('details-view').style.display = 'none';
+    document.getElementById('main-empty').style.display = 'none';
+    document.getElementById('ask-view').style.display = 'flex';
+
+    currentTitle.textContent = 'Poser une question';
+    currentTitle.contentEditable = 'false';
+    document.querySelector('.header-meta').style.visibility = 'hidden';
+
+    const meeting = state.selectedMeetingId ? state.meetingData : null;
+    askScope.disabled = !meeting;
+    if (!meeting) askScope.checked = false;
+    document.getElementById('ask-scope-text').textContent = meeting
+        ? `Seulement « ${meeting.title} »`
+        : 'Seulement la réunion sélectionnée';
+
+    if (state.askResult) Ask.renderAnswer(state.askResult, openCitation);
+    askInput.focus();
+}
+
+async function handleAsk(event) {
+    event.preventDefault();
+    const query = askInput.value.trim();
+    if (!query) return;
+
+    const meetingIds = askScope.checked && state.selectedMeetingId ? [state.selectedMeetingId] : null;
+    askSubmit.disabled = true;
+    askSubmit.textContent = 'Recherche...';
+    Ask.renderAskLoading();
+
+    try {
+        state.askResult = await API.askRag(query, meetingIds);
+        Ask.renderAnswer(state.askResult, openCitation);
+    } catch (err) {
+        console.error(err);
+        Ask.renderAskError(err.message);
+    } finally {
+        askSubmit.disabled = false;
+        askSubmit.textContent = 'Demander';
+    }
+}
+
+async function openCitation(citation) {
+    const el = document.querySelector(`.meeting-item[data-id="${citation.meeting_id}"]`);
+    await selectMeeting(citation.meeting_id, el);
+    UI.focusSegments(citation.segment_ids?.length ? citation.segment_ids : [citation.segment_id]);
+    await state.audioReady;
+    Audio.seekToTime(citation.start_time, false);
 }

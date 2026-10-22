@@ -21,6 +21,7 @@
     </div>
     <div class="sidebar-search">
       <input type="text" id="search-input" placeholder="Rechercher...">
+      <button id="ask-open-btn" class="btn btn-primary ask-open-btn">Poser une question</button>
     </div>
     <div id="meeting-list" class="meeting-list">
       <div class="empty-state" style="height: 100px;">
@@ -130,6 +131,26 @@
         </div>
       </div>
 
+    </div>
+
+    <!-- Ask (RAG) view -->
+    <div class="content-body" id="ask-view" style="display: none;">
+      <form id="ask-form" class="ask-form">
+        <textarea id="ask-input" rows="2"
+          placeholder="Ex : Qu'avons-nous décidé pour l'hébergement ? (Entrée pour envoyer)"></textarea>
+        <div class="ask-controls">
+          <label class="ask-scope" id="ask-scope-label">
+            <input type="checkbox" id="ask-scope-current">
+            <span id="ask-scope-text">Seulement la réunion sélectionnée</span>
+          </label>
+          <button type="submit" id="ask-submit" class="btn btn-primary">Demander</button>
+        </div>
+      </form>
+      <div id="ask-result" class="scroll-area">
+        <div class="empty-state ask-hint">
+          <p>Posez une question : la réponse cite les passages des transcripts.</p>
+        </div>
+      </div>
     </div>
 
     <!-- Empty State for Main View -->

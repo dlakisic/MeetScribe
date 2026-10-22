@@ -8,6 +8,8 @@ const state = {
     meetingData: null,
     meetings: [],
     pollTimers: new Map(),
+    audioReady: Promise.resolve(),
+    askResult: null,
 };
 
 export default state;

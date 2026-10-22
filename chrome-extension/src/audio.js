@@ -62,10 +62,11 @@ function formatAudioTime(seconds) {
     return `${m}:${s}`;
 }
 
+/** Resolves once the audio can be seeked (immediately when there is none). */
 export function loadAudioForMeeting(meetingId, hasAudio) {
     if (!hasAudio || !playerBar || !audio) {
         if (playerBar) playerBar.style.display = 'none';
-        return;
+        return Promise.resolve();
     }
 
     const audioUrl = `${getApiUrl()}/api/meetings/${meetingId}/audio`;
@@ -73,7 +74,7 @@ export function loadAudioForMeeting(meetingId, hasAudio) {
     playBtn.innerHTML = '&#9654;';
     playerBar.style.display = 'flex';
 
-    fetchAudioBlob(audioUrl)
+    return fetchAudioBlob(audioUrl)
         .then(blob => {
             audio.src = URL.createObjectURL(blob);
         })
@@ -82,10 +83,10 @@ export function loadAudioForMeeting(meetingId, hasAudio) {
         });
 }
 
-export function seekToTime(time) {
+export function seekToTime(time, play = true) {
     if (audio && audio.src) {
         audio.currentTime = time;
-        if (audio.paused) {
+        if (play && audio.paused) {
             audio.play();
             if (playBtn) playBtn.innerHTML = '&#9646;&#9646;';
         }

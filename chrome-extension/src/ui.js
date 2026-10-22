@@ -1,4 +1,4 @@
-function escapeHtml(str) {
+export function escapeHtml(str) {
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
@@ -206,4 +206,17 @@ export function highlightCurrentSegment(currentTime) {
 export function clearSegmentHighlight() {
     document.querySelectorAll('.transcript-segment.playing')
         .forEach(el => el.classList.remove('playing'));
+}
+
+export function focusSegments(segmentIds) {
+    const transcriptContainer = document.getElementById('transcript-container');
+    const ids = new Set(segmentIds.map(String));
+    let first = null;
+    transcriptContainer.querySelectorAll('.transcript-segment').forEach(el => {
+        const textEl = el.querySelector('.segment-text');
+        const cited = ids.has(textEl?.dataset.segmentId);
+        el.classList.toggle('cited', cited);
+        if (cited && !first) first = el;
+    });
+    if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
