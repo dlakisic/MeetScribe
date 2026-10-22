@@ -4,6 +4,7 @@ import concurrent.futures
 import os
 from pathlib import Path
 
+from .audio import load_waveform
 from .domain import TranscriptSegment
 from .errors import ModelError, TranscriptionTimeoutError
 from .logging import get_logger
@@ -11,6 +12,7 @@ from .logging import get_logger
 log = get_logger("diarizer")
 
 DEFAULT_PIPELINE = "pyannote/speaker-diarization-community-1"
+SAMPLE_RATE = 16000
 
 
 class SpeakerDiarizer:
@@ -48,8 +50,18 @@ class SpeakerDiarizer:
         """
         log.info(f"Running diarization on {audio_path.name} (timeout={timeout}s)")
 
+        import torch
+
+        # Decode with ffmpeg and pass the waveform: pyannote's own file reading is
+        # not sample-accurate on compressed formats (MP3 chunks come back short).
+        waveform = load_waveform(audio_path, SAMPLE_RATE)
+        audio = {
+            "waveform": torch.from_numpy(waveform.copy()).unsqueeze(0),
+            "sample_rate": SAMPLE_RATE,
+        }
+
         executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-        future = executor.submit(self.pipeline, str(audio_path))
+        future = executor.submit(self.pipeline, audio)
         try:
             diarization = future.result(timeout=timeout)
         except concurrent.futures.TimeoutError:
