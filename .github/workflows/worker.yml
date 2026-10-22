@@ -1,0 +1,43 @@
+name: GPU Worker
+
+# The worker image (CUDA + torch + pyannote) takes minutes to build and rarely
+# changes, so it only builds when something it is made of changes. Run it by
+# hand from the Actions tab otherwise.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "gpu-worker/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".python-version"
+      - ".github/workflows/worker.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "gpu-worker/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".python-version"
+      - ".github/workflows/worker.yml"
+  workflow_dispatch:
+
+jobs:
+  build-worker:
+    name: Build GPU Worker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./gpu-worker/Dockerfile
+          push: false
+          tags: meetscribe-worker:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -42,24 +42,7 @@ jobs:
         env:
           MEETSCRIBE_DATA_DIR: /tmp/meetscribe
 
-  build-worker:
-    name: Build GPU Worker
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./gpu-worker/Dockerfile
-          push: false
-          tags: meetscribe-worker:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+  # The GPU worker image builds in its own workflow (worker.yml), only when it changes.
 
   package-extension:
     name: Package Chrome Extension
