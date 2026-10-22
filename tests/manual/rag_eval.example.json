@@ -1,0 +1,19 @@
+[
+  {
+    "question": "Quelle option a été retenue pour l'hébergement ?",
+    "expected_text": "option B"
+  },
+  {
+    "question": "Quand est prévue la livraison ?",
+    "expected_text": "vendredi",
+    "meeting_ids": [12]
+  },
+  {
+    "question": "Qui s'occupe des release notes ?",
+    "expected_segment_ids": [431, 432]
+  },
+  {
+    "question": "Quel est le budget du séminaire au Japon ?",
+    "expect_no_answer": true
+  }
+]
