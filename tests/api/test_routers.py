@@ -102,6 +102,25 @@ async def test_delete_meeting(client, test_app):
 
 
 @pytest.mark.asyncio
+async def test_delete_meeting_removes_audio_and_jobs(client, test_app, test_config):
+    service = test_app.state.meeting_service
+    job_dir = test_config.upload_dir / "job123"
+    job_dir.mkdir(parents=True)
+    (job_dir / "mic_a.webm").write_bytes(b"mic")
+    (job_dir / "tab_a.webm").write_bytes(b"tab")
+    mid = await service.create_meeting(
+        title="With Audio", date=datetime(2026, 1, 1), audio_file="job123/tab_a.webm"
+    )
+    await test_app.state.job_store.create_job("job123", mid)
+
+    resp = await client.delete(f"/api/meetings/{mid}")
+    assert resp.status_code == 200
+    assert not job_dir.exists()
+    assert test_config.upload_dir.exists()
+    assert await test_app.state.job_store.get_job("job123") is None
+
+
+@pytest.mark.asyncio
 async def test_delete_meeting_not_found(client):
     resp = await client.delete("/api/meetings/99999")
     assert resp.status_code == 404

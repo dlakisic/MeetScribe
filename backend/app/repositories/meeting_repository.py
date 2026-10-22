@@ -4,7 +4,7 @@ from sqlmodel import desc, select
 
 from ..database import Database
 from ..interfaces import AbstractMeetingRepository
-from ..models import Meeting, Segment, Transcript
+from ..models import Job, Meeting, Segment, Transcript
 
 
 class MeetingRepository(AbstractMeetingRepository):
@@ -177,6 +177,10 @@ class MeetingRepository(AbstractMeetingRepository):
             meeting = await session.get(Meeting, meeting_id)
             if not meeting:
                 return False
+            # Jobs have no ORM relationship and SQLite doesn't enforce FKs here.
+            jobs = await session.exec(select(Job).where(Job.meeting_id == meeting_id))
+            for job in jobs.all():
+                await session.delete(job)
             await session.delete(meeting)
             await session.commit()
             return True

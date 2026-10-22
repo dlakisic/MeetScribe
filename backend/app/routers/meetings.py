@@ -1,3 +1,5 @@
+import shutil
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 
@@ -37,11 +39,20 @@ async def update_speaker(
 async def delete_meeting(
     meeting_id: int,
     service: MeetingService = Depends(get_meeting_service),
+    config: Config = Depends(get_config),
 ):
-    """Delete a meeting and all related data."""
+    """Delete a meeting and all related data, including its uploaded audio."""
+    meeting = await service.get_meeting(meeting_id)
     deleted = await service.delete_meeting(meeting_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Meeting not found")
+
+    if meeting and meeting.get("audio_file"):
+        # Uploads live in <upload_dir>/<job_id>/, holding both mic and tab files.
+        job_dir = (config.upload_dir / meeting["audio_file"]).resolve().parent
+        upload_root = config.upload_dir.resolve()
+        if job_dir != upload_root and job_dir.is_relative_to(upload_root):
+            shutil.rmtree(job_dir, ignore_errors=True)
     return {"ok": True}
 
 
