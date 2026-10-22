@@ -96,19 +96,25 @@ def assign_speakers(
     """Assign speaker labels from diarization turns to transcript segments.
 
     Uses majority-overlap: each segment gets the speaker of the
-    diarization turn that overlaps it the most.
+    diarization turn that overlaps it the most. A segment overlapping no turn
+    (diarization skips some short or quiet stretches) gets the closest turn's
+    speaker rather than the track's default label.
     """
     if not turns:
         return segments
 
     for seg in segments:
-        best_speaker = seg.speaker  # Keep existing if no overlap
+        best_speaker = None
         best_overlap = 0.0
         for turn_start, turn_end, speaker in turns:
             overlap = min(seg.end, turn_end) - max(seg.start, turn_start)
             if overlap > best_overlap:
                 best_overlap = overlap
                 best_speaker = speaker
+        if best_speaker is None:
+            _, _, best_speaker = min(
+                turns, key=lambda t: max(t[0] - seg.end, seg.start - t[1], 0.0)
+            )
         seg.speaker = _friendly_label(best_speaker)
 
     return segments
