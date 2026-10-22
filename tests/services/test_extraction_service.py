@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from backend.app.core.llm import LLMFactory
 from backend.app.schemas.extraction import ActionItem, ExtractedData, MeetingSummary
 from backend.app.services.extraction_service import ExtractionService
 
@@ -81,3 +82,29 @@ async def test_extraction_api_error():
 
         with pytest.raises(Exception, match="API Error"):
             await service.extract_from_transcript(transcript)
+
+
+@pytest.mark.parametrize(
+    ("env", "expected"),
+    [
+        ({}, False),
+        ({"LLM_BASE_URL": "", "LLM_API_KEY": ""}, False),
+        ({"LLM_BASE_URL": "http://host:11434/v1", "LLM_API_KEY": ""}, True),
+        ({"LLM_API_KEY": "sk-test"}, True),
+        ({"LLM_BASE_URL": "http://host:11434/v1", "LLM_API_KEY": "change_me"}, False),
+    ],
+)
+def test_llm_is_configured(monkeypatch, env, expected):
+    monkeypatch.delenv("LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    for key, value in env.items():
+        monkeypatch.setenv(key, value)
+    assert LLMFactory.is_configured() is expected
+
+
+def test_llm_empty_env_falls_back_to_defaults(monkeypatch):
+    monkeypatch.setenv("LLM_BASE_URL", "")
+    monkeypatch.setenv("LLM_MODEL", "")
+    client = LLMFactory.get_client()
+    assert str(client.client.base_url).startswith("http://localhost:11434/v1")
+    assert LLMFactory.get_model_name() == "llama3"
