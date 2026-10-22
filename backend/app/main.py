@@ -72,6 +72,8 @@ async def lifespan(app: FastAPI):
     log.info(f"Data dir: {config.data_dir}")
     log.info(f"GPU worker: {config.gpu.ssh_user}@{config.gpu.host}")
     log.info(f"Fallback enabled: {config.fallback.enabled}")
+    if config.api_token is None:
+        log.warning("MEETSCRIBE_API_TOKEN is not set: the API is open to anyone on the network")
 
     yield
 

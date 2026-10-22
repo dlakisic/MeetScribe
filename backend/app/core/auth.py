@@ -1,5 +1,7 @@
 """Authentication utilities."""
 
+import secrets
+
 from fastapi import HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
@@ -38,7 +40,7 @@ def verify_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    if credentials.credentials != expected_token:
+    if not secrets.compare_digest(credentials.credentials, expected_token):
         log.warning(
             "Unauthorized request: invalid token",
             extra={"request_id": request_id, "path": path},
