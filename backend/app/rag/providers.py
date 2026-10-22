@@ -261,14 +261,14 @@ class CitationSynthesizer(AbstractAnswerSynthesizer):
                 confidence=0.0,
             )
 
-        top = citations[0]
+        # The excerpts themselves are returned as citations; the answer points to them.
+        markers = "".join(f"[{n}]" for n in range(1, len(citations) + 1))
         answer = (
-            f"Pour la question '{query}', le meilleur extrait indique: \"{top.text}\" "
-            f"(speaker: {top.speaker}, t={top.start_time:.1f}-{top.end_time:.1f}s)."
+            "Aucun LLM n'est disponible pour rédiger une réponse. "
+            f"Voici les passages les plus pertinents, du plus au moins proche : {markers}"
         )
-
         return RAGAnswer(
-            answer=answer, citations=citations, confidence=_query_coverage(query, [top])
+            answer=answer, citations=citations, confidence=_query_coverage(query, citations[:1])
         )
 
 
@@ -284,6 +284,24 @@ def _query_coverage(query: str, chunks: list[RAGChunk]) -> float:
     tokens = set().union(*(_tokenize(c.text) for c in chunks))
     covered = [stem for stem in stems if any(tok.startswith(stem) for tok in tokens)]
     return round(len(covered) / len(stems), 3)
+
+
+_MARKER_RE = re.compile(r"\[(\d+)\]")
+
+
+def _renumber_markers(answer: str, used_numbers: list[int]) -> str:
+    """Map [n] markers from the excerpt numbering to the returned citations' order.
+
+    Markers for excerpts that aren't returned are dropped, so every marker left
+    points at a citation in the response.
+    """
+    new_number = {old: new for new, old in enumerate(used_numbers, start=1)}
+
+    def replace(match: re.Match) -> str:
+        number = new_number.get(int(match.group(1)))
+        return f"[{number}]" if number else ""
+
+    return _MARKER_RE.sub(replace, answer)
 
 
 class _LLMSynthResponse(BaseModel):
@@ -342,11 +360,12 @@ class LLMAnswerSynthesizer(AbstractAnswerSynthesizer):
         )
 
         # Keep only the excerpts the answer actually relies on; ignore invalid numbers.
-        used = [
-            citations[n - 1] for n in dict.fromkeys(resp.used_sources) if 1 <= n <= len(citations)
-        ]
+        used_numbers = [n for n in dict.fromkeys(resp.used_sources) if 1 <= n <= len(citations)]
+        used = [citations[n - 1] for n in used_numbers]
         return RAGAnswer(
-            answer=resp.answer, citations=used, confidence=_query_coverage(query, used)
+            answer=_renumber_markers(resp.answer, used_numbers),
+            citations=used,
+            confidence=_query_coverage(query, used),
         )
 
 

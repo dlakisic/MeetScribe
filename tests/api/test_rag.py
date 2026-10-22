@@ -256,6 +256,17 @@ async def test_llm_synth_keeps_only_used_sources():
 
 
 @pytest.mark.asyncio
+async def test_llm_synth_renumbers_markers_to_returned_citations():
+    chunks = [_chunk(i, f"Extrait {i} budget.") for i in range(1, 5)]
+    with patch("backend.app.rag.providers.LLMFactory.is_configured", return_value=True):
+        answer = await _llm_synth(
+            [4, 2], "Le budget [4] a été validé [2][4], voir aussi [3]."
+        ).synthesize("budget", chunks)
+    assert [c.segment_id for c in answer.citations] == [4, 2]
+    assert answer.answer == "Le budget [1] a été validé [2][1], voir aussi ."
+
+
+@pytest.mark.asyncio
 async def test_llm_synth_no_used_sources_means_no_citations():
     with patch("backend.app.rag.providers.LLMFactory.is_configured", return_value=True):
         answer = await _llm_synth([], "Les extraits ne répondent pas.").synthesize(
