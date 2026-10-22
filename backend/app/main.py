@@ -9,8 +9,9 @@ from .config import Config, load_config
 from .core.logging import get_logger
 from .database import Database
 from .dependencies import get_config, get_meeting_service
+from .rag.registry import build_rag_service
 from .repositories.meeting_repository import MeetingRepository
-from .routers import jobs, meetings, segments, transcripts, upload
+from .routers import jobs, meetings, rag, segments, transcripts, upload
 from .services.extraction_service import ExtractionService
 from .services.job_store import JobStore
 from .services.meeting_service import MeetingService
@@ -64,9 +65,11 @@ async def lifespan(app: FastAPI):
     transcriber = TranscriptionService(gpu_client, fallback, gpu_waker)
 
     meeting_service = MeetingService(repo, transcriber, job_store, extraction_service)
+    rag_service = build_rag_service(db)
 
     app.state.meeting_service = meeting_service
     app.state.job_store = job_store
+    app.state.rag_service = rag_service
 
     log.info("Backend started")
     log.info(f"Data dir: {config.data_dir}")
@@ -100,6 +103,7 @@ app.include_router(meetings.router)
 app.include_router(transcripts.router)
 app.include_router(segments.router)
 app.include_router(jobs.router)
+app.include_router(rag.router)
 
 
 @app.get("/")

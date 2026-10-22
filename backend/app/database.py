@@ -37,6 +37,35 @@ MIGRATIONS: list[tuple[int, str, list[str]]] = [
             "CREATE UNIQUE INDEX IF NOT EXISTS ix_jobs_job_id ON jobs(job_id)",
         ],
     ),
+    (
+        3,
+        "Create segments_fts full-text index for RAG",
+        [
+            # External-content FTS5 table: stores only the index, text stays in segments.
+            "CREATE VIRTUAL TABLE IF NOT EXISTS segments_fts USING fts5("
+            "  text, speaker,"
+            "  content='segments', content_rowid='id',"
+            "  tokenize='unicode61 remove_diacritics 2'"
+            ")",
+            # Triggers keep the index in sync with every segment write.
+            "CREATE TRIGGER IF NOT EXISTS segments_fts_ai AFTER INSERT ON segments BEGIN"
+            "  INSERT INTO segments_fts(rowid, text, speaker)"
+            "  VALUES (new.id, new.text, new.speaker);"
+            " END",
+            "CREATE TRIGGER IF NOT EXISTS segments_fts_ad AFTER DELETE ON segments BEGIN"
+            "  INSERT INTO segments_fts(segments_fts, rowid, text, speaker)"
+            "  VALUES ('delete', old.id, old.text, old.speaker);"
+            " END",
+            "CREATE TRIGGER IF NOT EXISTS segments_fts_au AFTER UPDATE ON segments BEGIN"
+            "  INSERT INTO segments_fts(segments_fts, rowid, text, speaker)"
+            "  VALUES ('delete', old.id, old.text, old.speaker);"
+            "  INSERT INTO segments_fts(rowid, text, speaker)"
+            "  VALUES (new.id, new.text, new.speaker);"
+            " END",
+            # Index segments that existed before this migration.
+            "INSERT INTO segments_fts(segments_fts) VALUES ('rebuild')",
+        ],
+    ),
 ]
 
 

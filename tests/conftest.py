@@ -8,6 +8,8 @@ from httpx import ASGITransport, AsyncClient
 
 from backend.app.config import Config
 from backend.app.database import Database
+from backend.app.rag.providers import CitationSynthesizer, IdentityReranker, KeywordRetriever
+from backend.app.rag.service import RAGService
 from backend.app.repositories.meeting_repository import MeetingRepository
 from backend.app.services.job_store import JobStore
 from backend.app.services.meeting_service import MeetingService
@@ -88,6 +90,11 @@ async def test_app(test_config):
     app.state.db = db
     app.state.meeting_service = service
     app.state.job_store = job_store
+    app.state.rag_service = RAGService(
+        retriever=KeywordRetriever(db),
+        reranker=IdentityReranker(),
+        synthesizer=CitationSynthesizer(),
+    )
 
     yield app
 
