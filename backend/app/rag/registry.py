@@ -7,14 +7,16 @@ import inspect
 import os
 from typing import Any
 
+from ..core.llm import LLMFactory
 from ..core.logging import get_logger
 from ..database import Database
+from .embeddings import SegmentEmbedder
 from .interfaces import AbstractAnswerSynthesizer, AbstractReranker, AbstractRetriever
 from .providers import (
     CitationSynthesizer,
     FallbackSynthesizer,
+    HybridRetriever,
     IdentityReranker,
-    KeywordRetriever,
     LLMAnswerSynthesizer,
 )
 from .service import RAGService
@@ -50,8 +52,22 @@ def _instantiate(klass: type, kwargs: dict[str, Any]) -> Any:
     return klass(**kwargs)
 
 
-def build_rag_service(db: Database) -> RAGService:
-    retriever: AbstractRetriever = KeywordRetriever(db)
+def build_embedder(db: Database) -> SegmentEmbedder | None:
+    """Return a segment embedder when LLM_EMBEDDING_MODEL is set and sqlite-vec loads."""
+    model = LLMFactory.get_embedding_model()
+    if not model:
+        return None
+    if not db.vector_search_available:
+        log.warning("LLM_EMBEDDING_MODEL is set but sqlite-vec is unavailable; ignoring it")
+        return None
+    log.info("Semantic search enabled", extra={"embedding_model": model})
+    return SegmentEmbedder(db, LLMFactory.get_openai_client(), model)
+
+
+def build_rag_service(db: Database, embedder: SegmentEmbedder | None = None) -> RAGService:
+    # Standard deviations a semantic hit must stand out by (model-independent).
+    min_z = float(os.getenv("MEETSCRIBE_RAG_VECTOR_MIN_Z") or 3.5)
+    retriever: AbstractRetriever = HybridRetriever(db, embedder=embedder, vector_min_z=min_z)
     reranker: AbstractReranker = IdentityReranker()
     synthesizer: AbstractAnswerSynthesizer = FallbackSynthesizer(
         primary=LLMAnswerSynthesizer(), fallback=CitationSynthesizer()
@@ -62,7 +78,7 @@ def build_rag_service(db: Database) -> RAGService:
     synthesizer_path = os.getenv("MEETSCRIBE_RAG_SYNTHESIZER")
 
     if retriever_path and (klass := _load_class(retriever_path, AbstractRetriever)):
-        retriever = _instantiate(klass, {"db": db})
+        retriever = _instantiate(klass, {"db": db, "embedder": embedder})
         log.info("Loaded custom retriever", extra={"provider_path": retriever_path})
     if reranker_path and (klass := _load_class(reranker_path, AbstractReranker)):
         reranker = _instantiate(klass, {})

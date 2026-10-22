@@ -18,6 +18,8 @@ services:
       - LLM_BASE_URL=${LLM_BASE_URL}
       - LLM_API_KEY=${LLM_API_KEY}
       - LLM_MODEL=${LLM_MODEL:-llama3}
+      - LLM_EMBEDDING_MODEL=${LLM_EMBEDDING_MODEL:-}  # e.g. bge-m3; empty disables semantic search
+      - MEETSCRIBE_RAG_VECTOR_MIN_Z=${RAG_VECTOR_MIN_Z:-3.5}
       # Smart Plug Config (Optional)
       - MEETSCRIBE_PLUG_DEVICE_ID=${PLUG_DEVICE_ID}
       - MEETSCRIBE_PLUG_IP=${PLUG_IP}

@@ -288,8 +288,11 @@ async def test_rag_falls_back_when_llm_unreachable(client, test_app):
 
 
 @pytest.mark.asyncio
-async def test_rag_falls_back_when_llm_not_configured(client, test_app):
+async def test_rag_falls_back_when_llm_not_configured(client, test_app, monkeypatch):
     from backend.app.rag.registry import build_rag_service
+
+    # A developer's real embedding config must not make this test call the network.
+    monkeypatch.delenv("LLM_EMBEDDING_MODEL", raising=False)
 
     await _seed(
         test_app,

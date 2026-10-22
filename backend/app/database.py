@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from sqlalchemy import text
+from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
@@ -66,7 +66,37 @@ MIGRATIONS: list[tuple[int, str, list[str]]] = [
             "INSERT INTO segments_fts(segments_fts) VALUES ('rebuild')",
         ],
     ),
+    (
+        4,
+        "Create segment_embeddings table for semantic RAG search",
+        [
+            "CREATE TABLE IF NOT EXISTS segment_embeddings ("
+            "  segment_id INTEGER PRIMARY KEY REFERENCES segments(id),"
+            "  model TEXT NOT NULL,"
+            "  embedding BLOB NOT NULL"
+            ")",
+            # Deleted or edited segments lose their embedding; the indexer recomputes it.
+            "CREATE TRIGGER IF NOT EXISTS segment_embeddings_ad AFTER DELETE ON segments BEGIN"
+            "  DELETE FROM segment_embeddings WHERE segment_id = old.id;"
+            " END",
+            "CREATE TRIGGER IF NOT EXISTS segment_embeddings_au AFTER UPDATE OF text ON segments"
+            " BEGIN"
+            "  DELETE FROM segment_embeddings WHERE segment_id = old.id;"
+            " END",
+        ],
+    ),
 ]
+
+
+def _load_sqlite_vec(dbapi_connection, _record) -> None:
+    """Load the sqlite-vec extension on each new connection (aiosqlite adapter)."""
+    import sqlite_vec
+
+    dbapi_connection.run_async(lambda conn: conn.enable_load_extension(True))
+    try:
+        dbapi_connection.run_async(lambda conn: conn.load_extension(sqlite_vec.loadable_path()))
+    finally:
+        dbapi_connection.run_async(lambda conn: conn.enable_load_extension(False))
 
 
 class Database:
@@ -74,7 +104,23 @@ class Database:
         self.db_path = db_path
         self.database_url = f"sqlite+aiosqlite:///{db_path}"
         self.engine = create_async_engine(self.database_url, echo=False)
+        self.vector_search_available = self._enable_sqlite_vec()
         self.async_session = sessionmaker(self.engine, class_=AsyncSession, expire_on_commit=False)
+
+    def _enable_sqlite_vec(self) -> bool:
+        """Register sqlite-vec loading; semantic search is optional, so failures only warn."""
+        try:
+            import sqlite3
+
+            import sqlite_vec  # noqa: F401
+
+            if not hasattr(sqlite3.Connection, "enable_load_extension"):
+                raise RuntimeError("Python's sqlite3 was built without extension support")
+        except Exception as exc:
+            log.warning(f"sqlite-vec unavailable, semantic search disabled: {exc}")
+            return False
+        event.listen(self.engine.sync_engine, "connect", _load_sqlite_vec)
+        return True
 
     async def connect(self):
         """Create tables if they don't exist, then run pending migrations."""

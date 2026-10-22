@@ -16,6 +16,7 @@ from ..core.llm import LLMFactory
 from ..core.logging import get_logger
 from ..database import Database
 from ..models import Meeting, Segment
+from .embeddings import SegmentEmbedder
 from .interfaces import (
     AbstractAnswerSynthesizer,
     AbstractReranker,
@@ -67,6 +68,15 @@ def _query_stems(query: str) -> set[str]:
 
 
 @dataclass
+class _Hit:
+    id: int
+    meeting_id: int
+    start_time: float
+    end_time: float
+    score: float
+
+
+@dataclass
 class _Window:
     meeting_id: int
     start: float
@@ -76,23 +86,47 @@ class _Window:
     best_score: float
 
 
-class KeywordRetriever(AbstractRetriever):
-    """Lexical retriever: SQLite FTS5 with BM25 ranking, returning context windows.
+_RRF_K = 60
 
-    Matching segments are found through the segments_fts index, then hits that
-    are close in time are merged into windows of consecutive turns, so an answer
-    spread over a question and its reply comes back as one chunk.
+
+def _fuse(ranked_lists: list[list]) -> list[_Hit]:
+    """Reciprocal Rank Fusion: combine rankings whose raw scores aren't comparable."""
+    fused: dict[int, _Hit] = {}
+    for ranked in ranked_lists:
+        for rank, hit in enumerate(ranked, start=1):
+            entry = fused.setdefault(
+                hit.id, _Hit(hit.id, hit.meeting_id, hit.start_time, hit.end_time, 0.0)
+            )
+            entry.score += 1.0 / (_RRF_K + rank)
+    return list(fused.values())
+
+
+class HybridRetriever(AbstractRetriever):
+    """Retriever over transcript segments, returning context windows.
+
+    Keyword search uses the segments_fts index (BM25). When an embedder is
+    configured, semantic search runs alongside it and both rankings are merged
+    with Reciprocal Rank Fusion; if the embedding host is unreachable, keyword
+    results are used alone. Hits close in time are then merged into windows of
+    consecutive turns, so an answer spread over a question and its reply comes
+    back as one chunk.
     """
 
     def __init__(
         self,
         db: Database,
+        embedder: SegmentEmbedder | None = None,
         max_hits: int = 200,
+        max_vector_hits: int = 50,
+        vector_min_z: float = 3.5,
         context_seconds: float = 20.0,
         max_window_seconds: float = 120.0,
     ):
         self._db = db
+        self._embedder = embedder
         self._max_hits = max_hits
+        self._max_vector_hits = max_vector_hits
+        self._vector_min_z = vector_min_z
         self._context_seconds = context_seconds
         self._max_window_seconds = max_window_seconds
 
@@ -103,11 +137,22 @@ class KeywordRetriever(AbstractRetriever):
         top_k: int = 5,
     ) -> list[RAGChunk]:
         stems = _query_stems(query)
-        if not stems:
+        # Embed before opening the session: the call may wait on a remote host.
+        query_vector = await self._embedder.embed_query(query) if self._embedder else None
+        if not stems and query_vector is None:
             return []
 
         async with self._db.session() as session:
-            hits = await self._search(session, stems, meeting_ids)
+            hits = await self._search(session, stems, meeting_ids) if stems else []
+            if query_vector is not None:
+                vector_hits = await self._embedder.search(
+                    session,
+                    query_vector,
+                    meeting_ids,
+                    limit=self._max_vector_hits,
+                    min_z=self._vector_min_z,
+                )
+                hits = _fuse([hits, vector_hits])
             windows = self._merge_windows(hits)[:top_k]
             if not windows:
                 return []

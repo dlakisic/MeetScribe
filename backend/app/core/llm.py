@@ -8,25 +8,31 @@ class LLMFactory:
     """Factory to create configured LLM clients for structured extraction."""
 
     @staticmethod
-    def get_client() -> instructor.Instructor:
+    def get_openai_client() -> AsyncOpenAI:
         """
-        Returns an async instructor-patched client for local inference.
+        Returns a plain async OpenAI-compatible client.
         Defaults to Ollama (http://localhost:11434/v1).
         Override with LLM_BASE_URL for any OpenAI-compatible provider.
         """
         # `or` rather than a getenv default: docker-compose passes unset vars as "".
         base_url = os.getenv("LLM_BASE_URL") or "http://localhost:11434/v1"
         api_key = os.getenv("LLM_API_KEY") or "ollama"
-        client = AsyncOpenAI(
-            base_url=base_url,
-            api_key=api_key,
-        )
-        return instructor.from_openai(client, mode=instructor.Mode.JSON)
+        return AsyncOpenAI(base_url=base_url, api_key=api_key)
+
+    @staticmethod
+    def get_client() -> instructor.Instructor:
+        """Returns an async instructor-patched client for structured outputs."""
+        return instructor.from_openai(LLMFactory.get_openai_client(), mode=instructor.Mode.JSON)
 
     @staticmethod
     def get_model_name() -> str:
         """Returns the model name."""
         return os.getenv("LLM_MODEL") or "llama3"
+
+    @staticmethod
+    def get_embedding_model() -> str | None:
+        """Embedding model for semantic search (e.g. bge-m3); None disables it."""
+        return os.getenv("LLM_EMBEDDING_MODEL") or None
 
     @staticmethod
     def is_configured() -> bool:

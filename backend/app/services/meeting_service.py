@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
@@ -21,11 +22,13 @@ class MeetingService:
         transcriber: AbstractTranscriber,
         job_store: AbstractJobStore,
         extraction_service: AbstractExtractionService,
+        on_transcript_saved: Callable[[int], None] | None = None,
     ):
         self.repo = repo
         self.transcriber = transcriber
         self.job_store = job_store
         self.extraction_service = extraction_service
+        self.on_transcript_saved = on_transcript_saved
 
     async def create_meeting(
         self,
@@ -73,6 +76,8 @@ class MeetingService:
                 formatted=result.formatted or "",
                 stats=result.stats or {},
             )
+            if self.on_transcript_saved:
+                self.on_transcript_saved(meeting_id)
             await self._run_extraction(
                 meeting_id=meeting_id,
                 job_id=job_id,

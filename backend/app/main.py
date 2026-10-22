@@ -1,3 +1,5 @@
+import asyncio
+import contextlib
 from contextlib import asynccontextmanager
 from uuid import uuid4
 
@@ -9,7 +11,8 @@ from .config import Config, load_config
 from .core.logging import get_logger
 from .database import Database
 from .dependencies import get_config, get_meeting_service
-from .rag.registry import build_rag_service
+from .rag.embeddings import EmbeddingIndexer
+from .rag.registry import build_embedder, build_rag_service
 from .repositories.meeting_repository import MeetingRepository
 from .routers import jobs, meetings, rag, segments, transcripts, upload
 from .services.extraction_service import ExtractionService
@@ -64,8 +67,17 @@ async def lifespan(app: FastAPI):
 
     transcriber = TranscriptionService(gpu_client, fallback, gpu_waker)
 
-    meeting_service = MeetingService(repo, transcriber, job_store, extraction_service)
-    rag_service = build_rag_service(db)
+    embedder = build_embedder(db)
+    indexer = EmbeddingIndexer(embedder) if embedder else None
+    rag_service = build_rag_service(db, embedder)
+    meeting_service = MeetingService(
+        repo,
+        transcriber,
+        job_store,
+        extraction_service,
+        on_transcript_saved=indexer.notify if indexer else None,
+    )
+    indexer_task = asyncio.create_task(indexer.run()) if indexer else None
 
     app.state.meeting_service = meeting_service
     app.state.job_store = job_store
@@ -80,6 +92,10 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    if indexer_task:
+        indexer_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await indexer_task
     await db.close()
 
 
