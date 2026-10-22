@@ -43,6 +43,8 @@ async def lifespan(app: FastAPI):
     repo = MeetingRepository(db)
     job_store = JobStore(db)
     await job_store.cleanup_old_jobs()
+    for meeting_id in await job_store.fail_interrupted_jobs():
+        await repo.update_status(meeting_id, "failed")
     extraction_service = ExtractionService()
 
     from .transcription.fallback import FallbackTranscriber

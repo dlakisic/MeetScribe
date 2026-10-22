@@ -81,3 +81,21 @@ async def test_cleanup_keeps_recent_jobs(job_store, meeting_id):
     deleted = await job_store.cleanup_old_jobs(max_age_hours=24)
     assert deleted == 0
     assert await job_store.get_job("recent-job") is not None
+
+
+@pytest.mark.asyncio
+async def test_fail_interrupted_jobs(job_store, meeting_id):
+    await job_store.create_job("queued-job", meeting_id=meeting_id)
+    await job_store.create_job("running-job", meeting_id=meeting_id)
+    await job_store.update_status("running-job", "processing")
+    await job_store.create_job("done-job", meeting_id=meeting_id)
+    await job_store.update_status("done-job", "completed")
+
+    meeting_ids = await job_store.fail_interrupted_jobs()
+
+    assert meeting_ids == [meeting_id, meeting_id]
+    for job_id in ("queued-job", "running-job"):
+        job = await job_store.get_job(job_id)
+        assert job["status"] == "failed"
+        assert job["error"] == "Interrupted by server restart"
+    assert (await job_store.get_job("done-job"))["status"] == "completed"

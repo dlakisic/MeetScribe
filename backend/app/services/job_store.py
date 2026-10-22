@@ -56,6 +56,25 @@ class JobStore(AbstractJobStore):
                 "error": job.error,
             }
 
+    async def fail_interrupted_jobs(self) -> list[int]:
+        """Mark jobs left queued/processing by a previous run as failed.
+
+        Background tasks don't survive a restart, so these jobs would otherwise
+        stay pending forever. Returns the affected meeting IDs.
+        """
+        async with self._db.session() as session:
+            stmt = select(Job).where(Job.status.in_(["queued", "processing"]))
+            jobs = (await session.exec(stmt)).all()
+            for job in jobs:
+                job.status = "failed"
+                job.error = "Interrupted by server restart"
+                job.updated_at = datetime.now()
+                session.add(job)
+            await session.commit()
+            if jobs:
+                log.warning(f"Marked {len(jobs)} interrupted jobs as failed")
+            return [job.meeting_id for job in jobs]
+
     async def cleanup_old_jobs(self, max_age_hours: int = 24) -> int:
         """Delete completed/failed jobs older than max_age_hours."""
         cutoff = datetime.now() - timedelta(hours=max_age_hours)
