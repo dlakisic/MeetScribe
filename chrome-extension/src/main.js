@@ -136,9 +136,10 @@ async function handleFileUpload(event) {
 
     const metadata = {
         title: file.name.replace(/\.[^/.]+$/, ""),
-        date: new Date().toISOString(),
+        // The file's own date, so imported recordings keep their real chronology.
+        date: new Date(file.lastModified || Date.now()).toISOString(),
         platform: "Upload",
-        duration: 0,
+        duration: await readMediaDuration(file),
         url: ""
     };
     formData.append('metadata', JSON.stringify(metadata));
@@ -207,6 +208,22 @@ function switchTab(tabName) {
 
     document.querySelector(`.tab[data-tab="${tabName}"]`)?.classList.add('active');
     document.getElementById(`tab-${tabName}`)?.classList.add('active');
+}
+
+/** Duration of an audio/video file in seconds, or 0 if the browser can't read it. */
+function readMediaDuration(file) {
+    return new Promise(resolve => {
+        const url = URL.createObjectURL(file);
+        const media = document.createElement('audio');
+        const done = (duration) => {
+            URL.revokeObjectURL(url);
+            resolve(Number.isFinite(duration) ? duration : 0);
+        };
+        media.preload = 'metadata';
+        media.onloadedmetadata = () => done(media.duration);
+        media.onerror = () => done(0);
+        media.src = url;
+    });
 }
 
 function setupAsk() {
