@@ -56,7 +56,7 @@ graph TD
 |-------|-----------|
 | **Backend** | Python 3.14, FastAPI, SQLModel, SQLite |
 | **ML / Transcription** | Faster-Whisper (large-v3), CUDA |
-| **Speaker Diarization** | Pyannote Audio 3.1 |
+| **Speaker Diarization** | pyannote.audio 4 (speaker-diarization-community-1) |
 | **LLM Extraction** | Configurable LLM API (summary, actions, decisions) |
 | **Frontend** | Chrome Extension (Manifest V3), vanilla JS |
 | **Infrastructure** | Docker, async Python, Tailscale |
@@ -109,8 +109,12 @@ uv run worker_server.py --port 8001 --device cuda
 
 **Optional — Speaker Diarization:**
 ```env
-HF_TOKEN=hf_xxx  # HuggingFace token (accept pyannote licenses first)
+HF_TOKEN=hf_xxx  # HuggingFace token
 ```
+Accept the model's conditions first at
+https://huggingface.co/pyannote/speaker-diarization-community-1 (gated repo).
+Set `PYANNOTE_PIPELINE` to use another pipeline. With Docker, put both in
+`infra/worker/.env`.
 
 ### 3. Chrome Extension
 1. Open `chrome://extensions/`

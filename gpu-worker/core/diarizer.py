@@ -10,11 +10,14 @@ from .logging import get_logger
 
 log = get_logger("diarizer")
 
+DEFAULT_PIPELINE = "pyannote/speaker-diarization-community-1"
+
 
 class SpeakerDiarizer:
     """Identifies who speaks when using pyannote speaker-diarization."""
 
     def __init__(self, device: str = "cuda"):
+        import torch
         from pyannote.audio import Pipeline
 
         hf_token = os.environ.get("HF_TOKEN")
@@ -22,15 +25,18 @@ class SpeakerDiarizer:
             raise RuntimeError(
                 "HF_TOKEN environment variable required for speaker diarization. "
                 "Get a token at https://huggingface.co/settings/tokens and accept "
-                "the license at https://huggingface.co/pyannote/speaker-diarization-3.1"
+                "the conditions of the pyannote pipeline on its Hugging Face page"
             )
 
-        log.info("Loading pyannote speaker-diarization-3.1 pipeline")
-        self.pipeline = Pipeline.from_pretrained(
-            "pyannote/speaker-diarization-3.1",
-            use_auth_token=hf_token,
-        )
-        self.pipeline.to(device)
+        model = os.environ.get("PYANNOTE_PIPELINE") or DEFAULT_PIPELINE
+        log.info(f"Loading pyannote pipeline {model}")
+        # pyannote.audio 4 renamed use_auth_token to token.
+        self.pipeline = Pipeline.from_pretrained(model, token=hf_token)
+        if self.pipeline is None:
+            raise RuntimeError(
+                f"Could not load {model}: accept its conditions at https://huggingface.co/{model}"
+            )
+        self.pipeline.to(torch.device(device))
         log.info("Diarization pipeline loaded")
 
     def diarize(self, audio_path: Path, timeout: int = 600) -> list[tuple[float, float, str]]:
@@ -57,8 +63,13 @@ class SpeakerDiarizer:
         else:
             executor.shutdown(wait=False)
 
+        # pyannote.audio 4 returns a DiarizeOutput; its exclusive variant has no
+        # overlapping turns, which suits aligning with transcript segments.
+        # Legacy pipelines return the Annotation directly.
+        annotation = getattr(diarization, "exclusive_speaker_diarization", diarization)
+
         turns = []
-        for turn, _, speaker in diarization.itertracks(yield_label=True):
+        for turn, _, speaker in annotation.itertracks(yield_label=True):
             turns.append((turn.start, turn.end, speaker))
 
         speakers = set(t[2] for t in turns)

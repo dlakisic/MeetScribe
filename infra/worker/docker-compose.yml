@@ -10,6 +10,10 @@ services:
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      # Speaker diarization (pyannote): the .env file next to this compose file is only
+      # used for substitution, so variables must be passed explicitly.
+      - HF_TOKEN=${HF_TOKEN:-}
+      - PYANNOTE_PIPELINE=${PYANNOTE_PIPELINE:-}
     ports:
       - "8001:8001"
 
