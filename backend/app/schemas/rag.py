@@ -26,5 +26,8 @@ class RAGCitation(BaseModel):
 
 class RAGAskResponse(BaseModel):
     answer: str
-    confidence: float
+    confidence: float = Field(description="Share of the question's terms found in the citations")
     citations: list[RAGCitation]
+    fallback_used: bool = Field(
+        default=False, description="LLM unavailable: extractive answer returned instead"
+    )

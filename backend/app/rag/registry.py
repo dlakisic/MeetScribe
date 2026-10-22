@@ -10,7 +10,13 @@ from typing import Any
 from ..core.logging import get_logger
 from ..database import Database
 from .interfaces import AbstractAnswerSynthesizer, AbstractReranker, AbstractRetriever
-from .providers import IdentityReranker, KeywordRetriever, LLMAnswerSynthesizer
+from .providers import (
+    CitationSynthesizer,
+    FallbackSynthesizer,
+    IdentityReranker,
+    KeywordRetriever,
+    LLMAnswerSynthesizer,
+)
 from .service import RAGService
 
 log = get_logger("rag.registry")
@@ -47,7 +53,9 @@ def _instantiate(klass: type, kwargs: dict[str, Any]) -> Any:
 def build_rag_service(db: Database) -> RAGService:
     retriever: AbstractRetriever = KeywordRetriever(db)
     reranker: AbstractReranker = IdentityReranker()
-    synthesizer: AbstractAnswerSynthesizer = LLMAnswerSynthesizer()
+    synthesizer: AbstractAnswerSynthesizer = FallbackSynthesizer(
+        primary=LLMAnswerSynthesizer(), fallback=CitationSynthesizer()
+    )
 
     retriever_path = os.getenv("MEETSCRIBE_RAG_RETRIEVER")
     reranker_path = os.getenv("MEETSCRIBE_RAG_RERANKER")

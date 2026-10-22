@@ -226,3 +226,78 @@ async def test_rag_query_with_fts_syntax_is_safe(client, test_app):
     )
     resp = await client.post("/api/rag/ask", json={"query": 'release" OR NEAR(code) AND -* "'})
     assert resp.status_code == 200
+
+
+def _chunk(segment_id, text):
+    from backend.app.rag.interfaces import RAGChunk
+
+    return RAGChunk(1, segment_id, "Alice", text, 0.0, 1.0, segment_ids=[segment_id])
+
+
+def _llm_synth(used_sources, answer="Réponse [2]"):
+    from unittest.mock import AsyncMock, MagicMock
+
+    synth = LLMAnswerSynthesizer()
+    synth.client = MagicMock()
+    synth.client.chat.completions.create = AsyncMock(
+        return_value=MagicMock(answer=answer, used_sources=used_sources)
+    )
+    return synth
+
+
+@pytest.mark.asyncio
+async def test_llm_synth_keeps_only_used_sources():
+    chunks = [_chunk(1, "Rien à voir."), _chunk(2, "Le budget est validé."), _chunk(3, "Autre.")]
+    with patch("backend.app.rag.providers.LLMFactory.is_configured", return_value=True):
+        answer = await _llm_synth([2, 2, 99]).synthesize("budget validé", chunks)
+    assert [c.segment_id for c in answer.citations] == [2]
+    assert answer.confidence == 1.0
+    assert answer.fallback_used is False
+
+
+@pytest.mark.asyncio
+async def test_llm_synth_no_used_sources_means_no_citations():
+    with patch("backend.app.rag.providers.LLMFactory.is_configured", return_value=True):
+        answer = await _llm_synth([], "Les extraits ne répondent pas.").synthesize(
+            "budget", [_chunk(1, "Le budget est validé.")]
+        )
+    assert answer.citations == []
+    assert answer.confidence == 0.0
+
+
+@pytest.mark.asyncio
+async def test_rag_falls_back_when_llm_unreachable(client, test_app):
+    from backend.app.rag.providers import FallbackSynthesizer
+
+    await _seed(
+        test_app,
+        "Fallback",
+        [{"speaker": "Alice", "text": "We ship on Friday.", "start": 0, "end": 2}],
+    )
+    with patch("backend.app.rag.providers.LLMFactory.is_configured", return_value=True):
+        llm = LLMAnswerSynthesizer()
+    llm.client.chat.completions.create = _raise_connection_error
+    test_app.state.rag_service.synthesizer = FallbackSynthesizer(llm, CitationSynthesizer())
+
+    with patch("backend.app.rag.providers.LLMFactory.is_configured", return_value=True):
+        resp = await client.post("/api/rag/ask", json={"query": "When do we ship?"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["fallback_used"] is True
+    assert "Friday" in data["citations"][0]["text"]
+
+
+@pytest.mark.asyncio
+async def test_rag_falls_back_when_llm_not_configured(client, test_app):
+    from backend.app.rag.registry import build_rag_service
+
+    await _seed(
+        test_app,
+        "No LLM",
+        [{"speaker": "Alice", "text": "We ship on Friday.", "start": 0, "end": 2}],
+    )
+    test_app.state.rag_service = build_rag_service(test_app.state.db)
+    with patch("backend.app.rag.providers.LLMFactory.is_configured", return_value=False):
+        resp = await client.post("/api/rag/ask", json={"query": "When do we ship?"})
+    assert resp.status_code == 200
+    assert resp.json()["fallback_used"] is True

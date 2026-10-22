@@ -27,6 +27,8 @@ class RAGAnswer:
     answer: str
     citations: list[RAGChunk]
     confidence: float
+    # True when the LLM was unavailable and an extractive answer was returned.
+    fallback_used: bool = False
 
 
 class AbstractRetriever(ABC):

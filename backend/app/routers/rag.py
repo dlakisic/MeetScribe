@@ -30,6 +30,7 @@ async def ask(
     return RAGAskResponse(
         answer=result.answer,
         confidence=result.confidence,
+        fallback_used=result.fallback_used,
         citations=[
             RAGCitation(
                 meeting_id=c.meeting_id,

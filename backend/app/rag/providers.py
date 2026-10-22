@@ -6,11 +6,14 @@ import re
 import unicodedata
 from dataclasses import dataclass
 
+import openai
+from instructor.core.exceptions import InstructorError
 from pydantic import BaseModel
 from sqlalchemy import bindparam, text
 from sqlmodel import select
 
 from ..core.llm import LLMFactory
+from ..core.logging import get_logger
 from ..database import Database
 from ..models import Meeting, Segment
 from .interfaces import (
@@ -20,6 +23,8 @@ from .interfaces import (
     RAGAnswer,
     RAGChunk,
 )
+
+log = get_logger("rag.providers")
 
 _TOKEN_RE = re.compile(r"\w+")
 
@@ -234,7 +239,7 @@ def _query_coverage(query: str, chunks: list[RAGChunk]) -> float:
 
 class _LLMSynthResponse(BaseModel):
     answer: str
-    confidence: float
+    used_sources: list[int]
 
 
 class LLMAnswerSynthesizer(AbstractAnswerSynthesizer):
@@ -260,12 +265,11 @@ class LLMAnswerSynthesizer(AbstractAnswerSynthesizer):
             )
 
         blocks = []
-        for c in citations:
+        for number, c in enumerate(citations, start=1):
             date = f" ({c.meeting_date:%Y-%m-%d})" if c.meeting_date else ""
             title = c.meeting_title or f"meeting {c.meeting_id}"
             blocks.append(
-                f"[segment:{c.segment_id}] {title}{date}, "
-                f"t={c.start_time:.1f}-{c.end_time:.1f}s\n{c.text}"
+                f"[{number}] {title}{date}, t={c.start_time:.1f}-{c.end_time:.1f}s\n{c.text}"
             )
         context = "\n\n".join(blocks)
 
@@ -276,15 +280,39 @@ class LLMAnswerSynthesizer(AbstractAnswerSynthesizer):
                 {
                     "role": "system",
                     "content": (
-                        "You answer only from cited meeting excerpts. "
-                        "If evidence is weak, lower confidence. "
+                        "You answer only from the numbered meeting excerpts provided. "
+                        "Cite the excerpts you rely on inline, like [1] or [2][3]. "
+                        "List their numbers in used_sources. If the excerpts don't "
+                        "answer the question, say so and leave used_sources empty. "
                         "Answer in the user's language."
                     ),
                 },
-                {"role": "user", "content": f"Question: {query}\n\nEvidence:\n{context}"},
+                {"role": "user", "content": f"Question: {query}\n\nExcerpts:\n{context}"},
             ],
             max_retries=1,
         )
 
-        confidence = max(0.0, min(1.0, float(resp.confidence)))
-        return RAGAnswer(answer=resp.answer, citations=citations, confidence=confidence)
+        # Keep only the excerpts the answer actually relies on; ignore invalid numbers.
+        used = [
+            citations[n - 1] for n in dict.fromkeys(resp.used_sources) if 1 <= n <= len(citations)
+        ]
+        return RAGAnswer(
+            answer=resp.answer, citations=used, confidence=_query_coverage(query, used)
+        )
+
+
+class FallbackSynthesizer(AbstractAnswerSynthesizer):
+    """Use the primary synthesizer, falling back when the LLM is missing or failing."""
+
+    def __init__(self, primary: AbstractAnswerSynthesizer, fallback: AbstractAnswerSynthesizer):
+        self.primary = primary
+        self.fallback = fallback
+
+    async def synthesize(self, query: str, citations: list[RAGChunk]) -> RAGAnswer:
+        try:
+            return await self.primary.synthesize(query, citations)
+        except (RuntimeError, openai.APIError, InstructorError) as exc:
+            log.warning("RAG synthesis fell back to extractive mode", extra={"error": str(exc)})
+            answer = await self.fallback.synthesize(query, citations)
+            answer.fallback_used = True
+            return answer
