@@ -1,3 +1,4 @@
+import asyncio
 import json
 import shutil
 import uuid
@@ -51,10 +52,21 @@ def _parse_metadata(metadata_str: str) -> dict:
         raise HTTPException(status_code=400, detail="Invalid metadata JSON")
 
 
-def _save_file(upload_file: UploadFile, dest_path: Path):
-    """Save uploaded file to destination."""
+_CHUNK_SIZE = 1024 * 1024
+
+
+def _save_file(upload_file: UploadFile, dest_path: Path, max_bytes: int):
+    """Save uploaded file to destination, rejecting files over max_bytes."""
+    written = 0
     with open(dest_path, "wb") as f:
-        shutil.copyfileobj(upload_file.file, f)
+        while chunk := upload_file.file.read(_CHUNK_SIZE):
+            written += len(chunk)
+            if written > max_bytes:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"File too large (max {max_bytes // (1024 * 1024)} MB)",
+                )
+            f.write(chunk)
 
 
 @router.post("")
@@ -74,6 +86,8 @@ async def upload_meeting(
 
     if not mic_file and not tab_file:
         raise HTTPException(status_code=400, detail="At least one audio file is required")
+    # Validate before writing anything to disk so a bad request leaves no files.
+    meeting_date = _parse_date(meta.get("date"))
 
     job_id = str(uuid.uuid4())[:8]
     job_dir = config.upload_dir / job_id
@@ -81,21 +95,26 @@ async def upload_meeting(
 
     mic_path = None
     tab_path = None
+    max_bytes = config.max_upload_mb * 1024 * 1024
 
-    if mic_file:
-        mic_path = job_dir / f"mic_{_safe_filename(mic_file.filename)}"
-        _save_file(mic_file, mic_path)
+    try:
+        if mic_file:
+            mic_path = job_dir / f"mic_{_safe_filename(mic_file.filename)}"
+            await asyncio.to_thread(_save_file, mic_file, mic_path, max_bytes)
 
-    if tab_file:
-        tab_path = job_dir / f"tab_{_safe_filename(tab_file.filename)}"
-        _save_file(tab_file, tab_path)
+        if tab_file:
+            tab_path = job_dir / f"tab_{_safe_filename(tab_file.filename)}"
+            await asyncio.to_thread(_save_file, tab_file, tab_path, max_bytes)
+    except HTTPException:
+        shutil.rmtree(job_dir, ignore_errors=True)
+        raise
 
     primary_audio = tab_path or mic_path
     audio_file = str(primary_audio.relative_to(config.upload_dir)) if primary_audio else None
 
     meeting_id = await service.create_meeting(
         title=meta.get("title", "Untitled Meeting"),
-        date=_parse_date(meta.get("date")),
+        date=meeting_date,
         platform=meta.get("platform"),
         url=meta.get("url"),
         duration=meta.get("duration"),

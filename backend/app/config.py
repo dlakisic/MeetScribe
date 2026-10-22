@@ -59,6 +59,7 @@ class Config:
     host: str = "0.0.0.0"
     port: int = 8000
     api_token: str | None = None
+    max_upload_mb: int = 100  # Per audio file
 
     gpu: GPUWorkerConfig = field(default_factory=GPUWorkerConfig)
     smart_plug: SmartPlugConfig = field(default_factory=SmartPlugConfig)
@@ -100,6 +101,9 @@ def load_config() -> Config:
 
     if api_token := os.getenv("MEETSCRIBE_API_TOKEN"):
         config.api_token = api_token
+
+    if max_upload_mb := os.getenv("MEETSCRIBE_MAX_UPLOAD_MB"):
+        config.max_upload_mb = int(max_upload_mb)
 
     if worker_path := os.getenv("MEETSCRIBE_FALLBACK_WORKER_PATH"):
         config.fallback.worker_path = worker_path

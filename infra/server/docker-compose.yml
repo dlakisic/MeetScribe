@@ -13,6 +13,7 @@ services:
       - MEETSCRIBE_GPU_HOST=${GPU_HOST}
       - MEETSCRIBE_GPU_USER=${GPU_USER:-dino}
       - MEETSCRIBE_API_TOKEN=${API_TOKEN}
+      - MEETSCRIBE_MAX_UPLOAD_MB=${MAX_UPLOAD_MB:-100}
       # LLM Configuration
       - LLM_BASE_URL=${LLM_BASE_URL}
       - LLM_API_KEY=${LLM_API_KEY}

@@ -242,3 +242,29 @@ async def test_upload_invalid_date(client):
     )
     assert resp.status_code == 400
     assert "date" in resp.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_upload_too_large_returns_413(client, test_config):
+    test_config.max_upload_mb = 1
+    resp = await client.post(
+        "/api/upload",
+        data={"metadata": '{"title": "Big"}'},
+        files={"mic_file": ("big.webm", b"x" * (1024 * 1024 + 1), "audio/webm")},
+    )
+    assert resp.status_code == 413
+    assert list(test_config.upload_dir.iterdir()) == []
+
+    meetings = (await client.get("/api/transcripts")).json()
+    assert meetings["count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_upload_invalid_date_leaves_no_files(client, test_config):
+    resp = await client.post(
+        "/api/upload",
+        data={"metadata": '{"title": "Test", "date": "not-a-date"}'},
+        files={"mic_file": ("test.webm", b"fake audio", "audio/webm")},
+    )
+    assert resp.status_code == 400
+    assert list(test_config.upload_dir.iterdir()) == []
