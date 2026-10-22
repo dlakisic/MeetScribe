@@ -16,7 +16,7 @@ async def test_fresh_db_gets_latest_version(tmp_path):
         result = await conn.execute(text("SELECT version FROM _schema_version"))
         version = result.fetchone()[0]
 
-    assert version == 4
+    assert version == 5
     await db.close()
 
 

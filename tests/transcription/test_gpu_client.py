@@ -348,3 +348,76 @@ async def test_poll_transient_network_error_retries():
 
     assert result.success
     assert call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_poll_forwards_worker_progress_once_per_change():
+    reported = []
+
+    async def on_progress(job_id, step, percent):
+        reported.append((job_id, step, percent))
+
+    client = GPUClient(
+        Config(gpu=GPUWorkerConfig(host="gpu-test", timeout=10, poll_interval=0.01)),
+        on_progress=on_progress,
+    )
+    submit_resp = httpx.Response(202, json={"job_id": "job-1", "status": "queued"})
+    polls = [
+        {"status": "processing", "progress_step": "transcribing_tab", "progress_percent": 10},
+        {"status": "processing", "progress_step": "transcribing_tab", "progress_percent": 10},
+        {"status": "processing", "progress_step": "transcribing_tab", "progress_percent": 55},
+        {"status": "processing", "progress_step": "diarizing", "progress_percent": None},
+        {
+            "status": "completed",
+            "progress_step": "saving",
+            "progress_percent": None,
+            "result": {"segments": [], "formatted": "", "stats": {}},
+        },
+    ]
+
+    with (
+        patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=submit_resp),
+        patch.object(
+            httpx.AsyncClient,
+            "get",
+            new_callable=AsyncMock,
+            side_effect=[httpx.Response(200, json={"job_id": "job-1", **p}) for p in polls],
+        ),
+    ):
+        result = await client.transcribe(None, None, _meta())
+
+    assert result.success
+    assert reported == [
+        ("job-1", "sending", None),
+        ("job-1", "transcribing_tab", 10),
+        ("job-1", "transcribing_tab", 55),
+        ("job-1", "diarizing", None),
+        ("job-1", "saving", None),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_progress_recording_failure_does_not_break_transcription():
+    async def broken(job_id, step, percent):
+        raise RuntimeError("database locked")
+
+    client = GPUClient(
+        Config(gpu=GPUWorkerConfig(host="gpu-test", timeout=10, poll_interval=0.01)),
+        on_progress=broken,
+    )
+    submit_resp = httpx.Response(202, json={"job_id": "job-1", "status": "queued"})
+    done = httpx.Response(
+        200,
+        json={
+            "job_id": "job-1",
+            "status": "completed",
+            "progress_step": "saving",
+            "result": {"segments": [], "formatted": "", "stats": {}},
+        },
+    )
+    with (
+        patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=submit_resp),
+        patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock, return_value=done),
+    ):
+        result = await client.transcribe(None, None, _meta())
+    assert result.success

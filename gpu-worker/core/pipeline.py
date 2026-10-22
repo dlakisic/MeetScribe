@@ -8,7 +8,7 @@ from .domain import TranscriptSegment
 from .logging import get_logger
 from .transcriber import WhisperTranscriber
 
-ProgressCallback = Callable[[str, str], None]  # (step_key, description)
+ProgressCallback = Callable[..., None]  # (step_key, description, percent=None)
 
 log = get_logger("pipeline")
 
@@ -42,6 +42,24 @@ def merge_transcripts(
 
     all_segments.sort(key=lambda s: s.start)
     return all_segments
+
+
+def _percent_reporter(
+    on_progress: ProgressCallback | None, step: str, detail: str
+) -> Callable[[float], None] | None:
+    """Turn a 0-1 fraction callback into on_progress calls, once per whole percent."""
+    if not on_progress:
+        return None
+    last = -1
+
+    def report(fraction: float) -> None:
+        nonlocal last
+        percent = int(fraction * 100)
+        if percent != last:
+            last = percent
+            on_progress(step, detail, percent)
+
+    return report
 
 
 def format_timestamp(seconds: float) -> str:
@@ -149,7 +167,14 @@ class MeetingPipeline:
             )
             t0 = time.monotonic()
             mic_segments = self.transcriber.transcribe_file(
-                mic_path, local_speaker, ffmpeg_timeout=self.ffmpeg_timeout
+                mic_path,
+                local_speaker,
+                ffmpeg_timeout=self.ffmpeg_timeout,
+                on_fraction=_percent_reporter(
+                    on_progress,
+                    "transcribing_mic",
+                    f"Transcribing microphone track as '{local_speaker}'",
+                ),
             )
             timings["transcribe_mic"] = round(time.monotonic() - t0, 1)
             log.info(
@@ -179,7 +204,14 @@ class MeetingPipeline:
             )
             t0 = time.monotonic()
             tab_segments = self.transcriber.transcribe_file(
-                tab_path, remote_speaker, ffmpeg_timeout=self.ffmpeg_timeout
+                tab_path,
+                remote_speaker,
+                ffmpeg_timeout=self.ffmpeg_timeout,
+                on_fraction=_percent_reporter(
+                    on_progress,
+                    "transcribing_tab",
+                    f"Transcribing tab audio track as '{remote_speaker}'",
+                ),
             )
             timings["transcribe_tab"] = round(time.monotonic() - t0, 1)
             log.info(

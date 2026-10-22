@@ -99,3 +99,22 @@ async def test_fail_interrupted_jobs(job_store, meeting_id):
         assert job["status"] == "failed"
         assert job["error"] == "Interrupted by server restart"
     assert (await job_store.get_job("done-job"))["status"] == "completed"
+
+
+@pytest.mark.asyncio
+async def test_progress_and_active_jobs(job_store, meeting_id):
+    await job_store.create_job("running", meeting_id=meeting_id)
+    await job_store.update_status("running", "processing")
+    await job_store.update_progress("running", "transcribing_tab", 42)
+    await job_store.create_job("done", meeting_id=meeting_id)
+    await job_store.update_status("done", "completed")
+
+    job = await job_store.get_job("running")
+    assert (job["progress_step"], job["progress_percent"]) == ("transcribing_tab", 42)
+
+    await job_store.update_progress("running", "diarizing")
+    job = await job_store.get_job("running")
+    assert (job["progress_step"], job["progress_percent"]) == ("diarizing", None)
+
+    active = await job_store.list_active()
+    assert [j["job_id"] for j in active] == ["running"]

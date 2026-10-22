@@ -58,6 +58,9 @@ class Job(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.now)
     result: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
     error: str | None = None
+    # Current processing step (e.g. "transcribing_tab") and its completion, when known.
+    progress_step: str | None = None
+    progress_percent: int | None = None
 
 
 class Segment(SQLModel, table=True):

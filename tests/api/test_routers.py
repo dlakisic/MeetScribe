@@ -155,6 +155,21 @@ async def test_get_job_status(client, test_app):
 
 
 @pytest.mark.asyncio
+async def test_list_active_jobs(client, test_app):
+    service = test_app.state.meeting_service
+    mid = await service.create_meeting(title="Long", date=datetime(2026, 1, 1))
+    await test_app.state.job_store.create_job("active-1", mid)
+    await test_app.state.job_store.update_progress("active-1", "transcribing_tab", 37)
+
+    resp = await client.get("/api/status")
+    assert resp.status_code == 200
+    [job] = resp.json()["jobs"]
+    assert job["job_id"] == "active-1"
+    assert job["meeting_id"] == mid
+    assert job["progress_percent"] == 37
+
+
+@pytest.mark.asyncio
 async def test_get_job_status_not_found(client):
     resp = await client.get("/api/status/nonexistent")
     assert resp.status_code == 404

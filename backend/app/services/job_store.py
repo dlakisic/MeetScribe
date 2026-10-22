@@ -41,20 +41,44 @@ class JobStore(AbstractJobStore):
             session.add(row)
             await session.commit()
 
+    async def update_progress(self, job_id: str, step: str, percent: int | None = None) -> None:
+        async with self._db.session() as session:
+            stmt = select(Job).where(Job.job_id == job_id)
+            row = (await session.exec(stmt)).first()
+            if not row:
+                return
+            row.progress_step = step
+            row.progress_percent = percent
+            row.updated_at = datetime.now()
+            session.add(row)
+            await session.commit()
+
     async def get_job(self, job_id: str) -> dict | None:
         async with self._db.session() as session:
             stmt = select(Job).where(Job.job_id == job_id)
             job = (await session.exec(stmt)).first()
-            if not job:
-                return None
-            return {
-                "job_id": job.job_id,
-                "status": job.status,
-                "meeting_id": job.meeting_id,
-                "created_at": job.created_at.isoformat(),
-                "result": job.result,
-                "error": job.error,
-            }
+            return self._to_dict(job) if job else None
+
+    async def list_active(self) -> list[dict]:
+        """Jobs still queued or processing, oldest first."""
+        async with self._db.session() as session:
+            stmt = (
+                select(Job).where(Job.status.in_(["queued", "processing"])).order_by(Job.created_at)
+            )
+            return [self._to_dict(job) for job in (await session.exec(stmt)).all()]
+
+    @staticmethod
+    def _to_dict(job: Job) -> dict:
+        return {
+            "job_id": job.job_id,
+            "status": job.status,
+            "meeting_id": job.meeting_id,
+            "created_at": job.created_at.isoformat(),
+            "progress_step": job.progress_step,
+            "progress_percent": job.progress_percent,
+            "result": job.result,
+            "error": job.error,
+        }
 
     async def fail_interrupted_jobs(self) -> list[int]:
         """Mark jobs left queued/processing by a previous run as failed.

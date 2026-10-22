@@ -54,7 +54,7 @@ async def lifespan(app: FastAPI):
     from .transcription.fallback import FallbackTranscriber
     from .transcription.gpu_client import GPUClient
 
-    gpu_client = GPUClient(config)
+    gpu_client = GPUClient(config, on_progress=job_store.update_progress)
     fallback = FallbackTranscriber(config) if config.fallback.enabled else None
     gpu_waker = None
 

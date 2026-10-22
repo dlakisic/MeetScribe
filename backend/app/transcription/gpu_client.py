@@ -3,6 +3,7 @@
 import asyncio
 import json
 import time
+from collections.abc import Awaitable, Callable
 from contextlib import ExitStack
 from pathlib import Path
 
@@ -22,8 +23,14 @@ class GPUClient:
     then we poll GET /jobs/{job_id} until completion.
     """
 
-    def __init__(self, config: Config):
+    def __init__(
+        self,
+        config: Config,
+        on_progress: Callable[[str, str, int | None], Awaitable[None]] | None = None,
+    ):
+        """on_progress(job_id, step, percent) receives the worker's progress while polling."""
         self.gpu = config.gpu
+        self._on_progress = on_progress
         self.base_url = f"http://{self.gpu.host}:{self.gpu.worker_port}"
         self._auth_headers = (
             {"X-Worker-Token": self.gpu.worker_token} if self.gpu.worker_token else {}
@@ -54,6 +61,7 @@ class GPUClient:
         job_id = metadata.get("job_id", "unknown")
         request_id = metadata.get("request_id")
 
+        await self._report(job_id, "sending")
         submit_result = await self._submit(mic_path, tab_path, metadata, job_id, request_id)
         if submit_result is None:
             return TranscriptionResult(success=False, error="Failed to submit to GPU worker")
@@ -64,6 +72,15 @@ class GPUClient:
 
         # Async worker returned job_id — poll for result
         return await self._poll_until_complete(submit_result, job_id, request_id)
+
+    async def _report(self, job_id: str, step: str, percent: int | None = None) -> None:
+        """Forward progress; a failure to record it must never break transcription."""
+        if not self._on_progress:
+            return
+        try:
+            await self._on_progress(job_id, step, percent)
+        except Exception as e:
+            log.warning(f"[{job_id}] Could not record progress: {e}")
 
     async def _submit(
         self,
@@ -159,6 +176,7 @@ class GPUClient:
         """Poll GET /jobs/{worker_job_id} until completed or timeout."""
         deadline = time.monotonic() + self.gpu.timeout
         last_step = ""
+        last_progress = None
 
         async with httpx.AsyncClient(timeout=10.0) as client:
             while time.monotonic() < deadline:
@@ -214,6 +232,11 @@ class GPUClient:
                         extra={"request_id": request_id, "job_id": job_id, "step": current_step},
                     )
                     last_step = current_step
+
+                progress = (current_step, data.get("progress_percent"))
+                if current_step and progress != last_progress:
+                    await self._report(job_id, *progress)
+                    last_progress = progress
 
                 if status == "completed":
                     result = data["result"]

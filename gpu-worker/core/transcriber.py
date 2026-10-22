@@ -1,4 +1,5 @@
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 
 from faster_whisper import WhisperModel
@@ -20,8 +21,13 @@ class WhisperTranscriber:
         self.language = language  # None = auto-detect
 
     def transcribe_file(
-        self, audio_path: Path, speaker_label: str, ffmpeg_timeout: int = 300
+        self,
+        audio_path: Path,
+        speaker_label: str,
+        ffmpeg_timeout: int = 300,
+        on_fraction: Callable[[float], None] | None = None,
     ) -> list[TranscriptSegment]:
+        """Transcribe a file; on_fraction receives the share of audio done (0-1)."""
         if audio_path.suffix.lower() != ".wav":
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
                 wav_path = Path(tmp.name)
@@ -44,6 +50,9 @@ class WhisperTranscriber:
 
             result = []
             for segment in segments:
+                # Segments stream in audio order, so the last end time tracks progress.
+                if on_fraction and info.duration:
+                    on_fraction(min(segment.end / info.duration, 1.0))
                 result.append(
                     TranscriptSegment(
                         speaker=speaker_label,

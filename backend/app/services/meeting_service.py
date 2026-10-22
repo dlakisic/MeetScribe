@@ -78,6 +78,7 @@ class MeetingService:
             )
             if self.on_transcript_saved:
                 self.on_transcript_saved(meeting_id)
+            await self.job_store.update_progress(job_id, "extracting")
             await self._run_extraction(
                 meeting_id=meeting_id,
                 job_id=job_id,

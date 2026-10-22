@@ -47,6 +47,7 @@ class WorkerJob:
     status: JobStatus = JobStatus.QUEUED
     progress_step: str = ""
     progress_detail: str = ""
+    progress_percent: int | None = None  # Within the current step, when measurable
     started_at: float | None = None
     completed_at: float | None = None
     result: dict[str, Any] | None = None
@@ -189,14 +190,17 @@ async def _run_transcription(
             extra={"request_id": request_id, "job_id": job_id},
         )
 
-        def on_progress(step: str, detail: str):
+        def on_progress(step: str, detail: str, percent: int | None = None):
             """Thread-safe callback: updates job state from executor thread."""
+            step_changed = step != job.progress_step
             job.progress_step = step
             job.progress_detail = detail
-            log.info(
-                f"[{job_id}] {detail}",
-                extra={"request_id": request_id, "job_id": job_id, "step": step},
-            )
+            job.progress_percent = percent
+            if step_changed:
+                log.info(
+                    f"[{job_id}] {detail}",
+                    extra={"request_id": request_id, "job_id": job_id, "step": step},
+                )
 
         try:
             output_path = job_dir / "output.json"
@@ -324,6 +328,7 @@ async def get_job(job_id: str):
         "status": job.status.value,
         "progress_step": job.progress_step,
         "progress_detail": job.progress_detail,
+        "progress_percent": job.progress_percent,
     }
 
     if job.started_at and not job.completed_at:

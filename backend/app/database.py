@@ -85,6 +85,14 @@ MIGRATIONS: list[tuple[int, str, list[str]]] = [
             " END",
         ],
     ),
+    (
+        5,
+        "Add progress columns to jobs",
+        [
+            "ALTER TABLE jobs ADD COLUMN progress_step TEXT",
+            "ALTER TABLE jobs ADD COLUMN progress_percent INTEGER",
+        ],
+    ),
 ]
 
 
